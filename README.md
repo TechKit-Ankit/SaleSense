@@ -40,25 +40,25 @@ pnpm dev
 
 ## Project Status
 
-**Current Phase: Phase 1 Completed ✅**
+**Current Phase: Phase 3 Completed ✅**
 
-### What is Done (Phase 0 & 1):
-- **Phase 0 - Project Foundation**: Monorepo setup (Turborepo), Prisma database schema initialization, global configurations (ESLint, Prettier, TypeScript).
-- **Phase 0 - Authentication & Authorization**: Core JWT-based Auth API, Login/Registration Next.js Frontend.
+### What is Done (Phase 0, 1 & 2):
+- **Phase 0 - Project Foundation**: Monorepo setup, Prisma initialization, global configs.
+- **Phase 0 - Authentication & Authorization**: Core JWT-based Auth API, Next.js Frontend.
 - **Phase 1 - Core Store Management**: `Store` CRUD operations, Store Context UI switcher.
-- **Phase 1 - Store User Roles & Deletion Workflow**: Complete 30-day "cooldown" deletion process (Soft delete -> Hard delete).
-- **Phase 1 - Team Invitations**: Complete Team Invitation workflow (Inviting, accepting, rejecting). Next.js Settings & Team UI.
+- **Phase 1 - Store User Roles & Deletion Workflow**: Complete 30-day "cooldown" deletion process.
+- **Phase 1 - Team Invitations**: Complete Team Invitation workflow.
+- **Phase 2 - Product Catalog**: `Product`, `Category`, `Brand` CRUD with nested barcode management.
+- **Phase 2 - Inventory Control**: Immutable `StockMovement` ledger, `InventoryBatch` management, transactional manual stock adjustments.
+- **Phase 2 - Purchases & Suppliers**: `PurchaseOrder` and `Supplier` management, auto-injecting received purchases directly into inventory via transactions.
 
-### What Remains (Next Phases):
-- **Phase 2 - Product Catalog & Inventory**:
-  - `Product` and `Category` CRUD.
-  - Inventory tracking (Stock levels, low-stock alerts, variants).
-  - Next.js UI for Products listing, creating, and editing.
 - **Phase 3 - Sales & Transactions (POS)**:
   - `Sale` and `SaleItem` transaction logging.
-  - Receipt generation, tax calculations, and discount mechanics.
-  - Core Point-of-Sale (POS) interface on the frontend.
+  - POS interface on the frontend.
   - **Companion Scanner Mode**: 1-Click QR pairing to use mobile phone as a wireless barcode scanner via WebSockets relay.
+  - **Offline Sync**: Local IndexedDB queue for resilient POS operations without internet.
+
+### What Remains (Next Phases):
 - **Phase 4 - Analytics & AI Insights**:
   - Aggregation logic for top-selling items and revenue charts.
   - Antigravity AI integration for forecasting and anomaly detection.

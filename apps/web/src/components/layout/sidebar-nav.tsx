@@ -10,7 +10,8 @@ import {
   ShoppingCart, 
   Users, 
   BarChart3, 
-  Settings 
+  Settings,
+  ScanBarcode
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -28,8 +29,18 @@ const items = [
   },
   {
     title: "Products",
-    href: "/products",
+    href: "/catalog/products",
     icon: Package,
+  },
+  {
+    title: "Categories",
+    href: "/catalog/categories",
+    icon: Boxes,
+  },
+  {
+    title: "Brands",
+    href: "/catalog/brands",
+    icon: Boxes,
   },
   {
     title: "Inventory",
@@ -50,6 +61,11 @@ const items = [
     title: "Analytics",
     href: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Mobile Scanner",
+    href: "/scanner",
+    icon: ScanBarcode,
   },
   {
     title: "Invitations",
