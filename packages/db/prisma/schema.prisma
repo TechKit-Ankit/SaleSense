@@ -1,0 +1,815 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SystemRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum StoreStatus {
+  ACTIVE
+  DISABLED
+  PENDING_DELETION
+  DELETION_PAUSED
+  DELETED
+}
+
+enum StoreUserRole {
+  OWNER
+  MANAGER
+  CASHIER
+}
+
+enum StoreUserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum DeviceType {
+  COUNTER
+  MOBILE
+  TABLET
+  ADMIN
+}
+
+enum ArchiveStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum BatchStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  ARCHIVED
+}
+
+enum StockMovementType {
+  PURCHASE_IN
+  SALE_OUT
+  REFUND_IN
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum StockReferenceType {
+  PURCHASE
+  SALE
+  REFUND
+  ADJUSTMENT
+  TRANSFER
+  SYNC
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  RECEIVED
+  CANCELLED
+}
+
+enum SaleStatus {
+  PENDING_SYNC
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+}
+
+enum SaleSource {
+  ONLINE
+  OFFLINE_SYNC
+  IMPORT
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  WALLET
+  SPLIT
+  OTHER
+}
+
+enum PaymentRecordStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  ISSUED
+  CANCELLED
+}
+
+enum RefundStatus {
+  PENDING_APPROVAL
+  APPROVED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FLAT
+  BOGO
+  BUNDLE
+}
+
+enum PromotionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum IdempotencyStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  CONFLICT
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  name         String
+  email        String?    @unique
+  phone        String?    @unique
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+  systemRole   SystemRole @default(USER) @map("system_role")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  storeUsers              StoreUser[]
+  sentInvitations         StoreInvitation[] @relation("InvitationSentBy")
+  createdInventoryBatches InventoryBatch[]  @relation("InventoryBatchCreatedBy")
+  createdStockMovements   StockMovement[]   @relation("StockMovementCreatedBy")
+  stockAdjustments        StockAdjustment[] @relation("StockAdjustmentCreatedBy")
+  purchaseOrders          PurchaseOrder[]   @relation("PurchaseOrderCreatedBy")
+  sales                   Sale[]            @relation("SaleCashier")
+  refundsCreated          Refund[]          @relation("RefundCreatedBy")
+  refundsApproved         Refund[]          @relation("RefundApprovedBy")
+  promotionsCreated       Promotion[]       @relation("PromotionCreatedBy")
+  idempotencyKeys         IdempotencyKey[]
+  syncEvents              SyncEvent[]
+  auditLogs               AuditLog[]        @relation("AuditLogActor")
+
+  @@map("users")
+}
+
+model Store {
+  id                 String      @id @default(uuid()) @db.Uuid
+  name               String
+  gstNumber          String?     @map("gst_number")
+  addressLine1       String?     @map("address_line_1")
+  addressLine2       String?     @map("address_line_2")
+  city               String?
+  state              String?
+  pincode            String?
+  upiId              String?     @map("upi_id")
+  currency           String      @default("INR")
+  timezone             String      @default("Asia/Kolkata")
+  allowNegativeStock   Boolean     @default(false) @map("allow_negative_stock")
+  status               StoreStatus @default(ACTIVE)
+  deletionRequestedAt  DateTime?   @map("deletion_requested_at")
+  deletionScheduledAt  DateTime?   @map("deletion_scheduled_at")
+  deletionPausedAt     DateTime?   @map("deletion_paused_at")
+  deletionCooldownDays Int         @default(30) @map("deletion_cooldown_days")
+  deletionExportUrl    String?     @map("deletion_export_url")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  storeUsers       StoreUser[]
+  storeInvitations StoreInvitation[]
+  devices          Device[]
+  categories       Category[]
+  brands           Brand[]
+  products         Product[]
+  productBarcodes  ProductBarcode[]
+  inventoryBatches InventoryBatch[]
+  stockMovements   StockMovement[]
+  stockAdjustments StockAdjustment[]
+  suppliers        Supplier[]
+  purchaseOrders   PurchaseOrder[]
+  purchaseItems    PurchaseItem[]
+  customers        Customer[]
+  sales            Sale[]
+  saleItems        SaleItem[]
+  payments         Payment[]
+  invoices         Invoice[]
+  invoiceSequences InvoiceSequence[]
+  refunds          Refund[]
+  promotions       Promotion[]
+  promotionRules   PromotionRule[]
+  idempotencyKeys  IdempotencyKey[]
+  syncEvents       SyncEvent[]
+  auditLogs        AuditLog[]
+
+  @@map("stores")
+}
+
+model StoreUser {
+  id        String          @id @default(uuid()) @db.Uuid
+  storeId   String          @map("store_id") @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
+  role      StoreUserRole
+  status    StoreUserStatus @default(ACTIVE)
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([storeId, userId])
+  @@index([userId])
+  @@map("store_users")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model StoreInvitation {
+  id           String           @id @default(uuid()) @db.Uuid
+  storeId      String           @map("store_id") @db.Uuid
+  invitedEmail String?          @map("invited_email")
+  invitedPhone String?          @map("invited_phone")
+  role         StoreUserRole
+  status       InvitationStatus @default(PENDING)
+  invitedBy    String           @map("invited_by") @db.Uuid
+  expiresAt    DateTime         @map("expires_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  respondedAt  DateTime?        @map("responded_at")
+
+  store   Store @relation(fields: [storeId], references: [id])
+  inviter User  @relation("InvitationSentBy", fields: [invitedBy], references: [id])
+
+  @@unique([storeId, invitedEmail])
+  @@unique([storeId, invitedPhone])
+  @@index([invitedEmail])
+  @@index([invitedPhone])
+  @@map("store_invitations")
+}
+
+model Device {
+  id                String     @id @default(uuid()) @db.Uuid
+  storeId           String     @map("store_id") @db.Uuid
+  name              String
+  type              DeviceType
+  clientGeneratedId String?    @map("client_generated_id")
+  lastSeenAt        DateTime?  @map("last_seen_at")
+  createdAt         DateTime   @default(now()) @map("created_at")
+
+  store      Store       @relation(fields: [storeId], references: [id])
+  sales      Sale[]
+  syncEvents SyncEvent[]
+
+  @@unique([storeId, clientGeneratedId])
+  @@index([storeId])
+  @@map("devices")
+}
+
+model Category {
+  id        String        @id @default(uuid()) @db.Uuid
+  storeId   String        @map("store_id") @db.Uuid
+  name      String
+  parentId  String?       @map("parent_id") @db.Uuid
+  status    ArchiveStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  store    Store      @relation(fields: [storeId], references: [id])
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@unique([storeId, name])
+  @@index([storeId, parentId])
+  @@map("categories")
+}
+
+model Brand {
+  id        String        @id @default(uuid()) @db.Uuid
+  storeId   String        @map("store_id") @db.Uuid
+  name      String
+  status    ArchiveStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  store    Store     @relation(fields: [storeId], references: [id])
+  products Product[]
+
+  @@unique([storeId, name])
+  @@map("brands")
+}
+
+model Product {
+  id                String        @id @default(uuid()) @db.Uuid
+  storeId           String        @map("store_id") @db.Uuid
+  globalProductId   String?       @map("global_product_id")
+  categoryId        String?       @map("category_id") @db.Uuid
+  brandId           String?       @map("brand_id") @db.Uuid
+  sku               String?
+  name              String
+  description       String?
+  hsnCode           String?       @map("hsn_code")
+  taxRateBps        Int           @default(0) @map("tax_rate_bps")
+  mrpPaise          BigInt?       @map("mrp_paise")
+  sellingPricePaise BigInt        @map("selling_price_paise")
+  trackInventory    Boolean       @default(true) @map("track_inventory")
+  expiryTracked     Boolean       @default(false) @map("expiry_tracked")
+  status            ArchiveStatus @default(ACTIVE)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  store            Store             @relation(fields: [storeId], references: [id])
+  category         Category?         @relation(fields: [categoryId], references: [id])
+  brand            Brand?            @relation(fields: [brandId], references: [id])
+  barcodes         ProductBarcode[]
+  inventoryBatches InventoryBatch[]
+  stockMovements   StockMovement[]
+  stockAdjustments StockAdjustment[]
+  purchaseItems    PurchaseItem[]
+  saleItems        SaleItem[]
+  refundItems      RefundItem[]
+
+  @@unique([storeId, sku])
+  @@index([storeId, name])
+  @@index([storeId, categoryId])
+  @@index([globalProductId])
+  @@map("products")
+}
+
+model ProductBarcode {
+  id              String   @id @default(uuid()) @db.Uuid
+  storeId         String   @map("store_id") @db.Uuid
+  globalBarcodeId String?  @map("global_barcode_id")
+  productId       String   @map("product_id") @db.Uuid
+  barcode         String
+  isPrimary       Boolean  @default(false) @map("is_primary")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  store   Store   @relation(fields: [storeId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([storeId, barcode])
+  @@index([productId])
+  @@index([globalBarcodeId])
+  @@map("product_barcodes")
+}
+
+model InventoryBatch {
+  id                 String      @id @default(uuid()) @db.Uuid
+  storeId            String      @map("store_id") @db.Uuid
+  productId          String      @map("product_id") @db.Uuid
+  purchaseItemId     String?     @unique @map("purchase_item_id") @db.Uuid
+  batchNo            String?     @map("batch_no")
+  purchasePricePaise BigInt      @map("purchase_price_paise")
+  mrpPaise           BigInt?     @map("mrp_paise")
+  sellingPricePaise  BigInt      @map("selling_price_paise")
+  expiryDate         DateTime?   @map("expiry_date") @db.Date
+  initialQuantity    Int         @map("initial_quantity")
+  currentQuantity    Int         @map("current_quantity")
+  status             BatchStatus @default(ACTIVE)
+  createdRequestId   String?     @map("created_request_id")
+  createdByUserId    String?     @map("created_by_user_id") @db.Uuid
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  store            Store             @relation(fields: [storeId], references: [id])
+  product          Product           @relation(fields: [productId], references: [id])
+  purchaseItem     PurchaseItem?     @relation(fields: [purchaseItemId], references: [id])
+  createdByUser    User?             @relation("InventoryBatchCreatedBy", fields: [createdByUserId], references: [id])
+  stockMovements   StockMovement[]
+  saleItems        SaleItem[]
+  stockAdjustments StockAdjustment[]
+  refundItems      RefundItem[]
+
+  @@index([storeId, productId])
+  @@index([storeId, expiryDate])
+  @@index([storeId, status])
+  @@map("inventory_batches")
+}
+
+model StockMovement {
+  id                     String             @id @default(uuid()) @db.Uuid
+  storeId                String             @map("store_id") @db.Uuid
+  productId              String             @map("product_id") @db.Uuid
+  batchId                String?            @map("batch_id") @db.Uuid
+  type                   StockMovementType
+  quantityDelta          Int                @map("quantity_delta")
+  quantityAfter          Int?               @map("quantity_after")
+  requiresReconciliation Boolean            @default(false) @map("requires_reconciliation")
+  referenceType          StockReferenceType @map("reference_type")
+  referenceId            String             @map("reference_id")
+  reason                 String?
+  createdRequestId       String?            @map("created_request_id")
+  createdByUserId        String?            @map("created_by_user_id") @db.Uuid
+  createdAt              DateTime           @default(now()) @map("created_at")
+
+  store         Store           @relation(fields: [storeId], references: [id])
+  product       Product         @relation(fields: [productId], references: [id])
+  batch         InventoryBatch? @relation(fields: [batchId], references: [id])
+  createdByUser User?           @relation("StockMovementCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([storeId, productId, createdAt])
+  @@index([storeId, referenceType, referenceId])
+  @@index([storeId, createdRequestId])
+  @@map("stock_movements")
+}
+
+model StockAdjustment {
+  id               String   @id @default(uuid()) @db.Uuid
+  storeId          String   @map("store_id") @db.Uuid
+  productId        String   @map("product_id") @db.Uuid
+  batchId          String?  @map("batch_id") @db.Uuid
+  quantityDelta    Int      @map("quantity_delta")
+  reason           String
+  createdByUserId  String   @map("created_by_user_id") @db.Uuid
+  createdRequestId String?  @map("created_request_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  store         Store           @relation(fields: [storeId], references: [id])
+  product       Product         @relation(fields: [productId], references: [id])
+  batch         InventoryBatch? @relation(fields: [batchId], references: [id])
+  createdByUser User            @relation("StockAdjustmentCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([storeId, productId, createdAt])
+  @@map("stock_adjustments")
+}
+
+model Supplier {
+  id        String        @id @default(uuid()) @db.Uuid
+  storeId   String        @map("store_id") @db.Uuid
+  name      String
+  phone     String?
+  gstNumber String?       @map("gst_number")
+  address   String?
+  status    ArchiveStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  store          Store           @relation(fields: [storeId], references: [id])
+  purchaseOrders PurchaseOrder[]
+
+  @@index([storeId, name])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id               String              @id @default(uuid()) @db.Uuid
+  storeId          String              @map("store_id") @db.Uuid
+  supplierId       String?             @map("supplier_id") @db.Uuid
+  invoiceNumber    String?             @map("invoice_number")
+  purchaseDate     DateTime            @map("purchase_date")
+  subtotalPaise    BigInt              @map("subtotal_paise")
+  taxPaise         BigInt              @map("tax_paise")
+  totalPaise       BigInt              @map("total_paise")
+  status           PurchaseOrderStatus @default(DRAFT)
+  createdByUserId  String              @map("created_by_user_id") @db.Uuid
+  createdRequestId String?             @map("created_request_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  store         Store          @relation(fields: [storeId], references: [id])
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id])
+  createdByUser User           @relation("PurchaseOrderCreatedBy", fields: [createdByUserId], references: [id])
+  items         PurchaseItem[]
+
+  @@index([storeId, purchaseDate])
+  @@index([storeId, supplierId])
+  @@map("purchase_orders")
+}
+
+model PurchaseItem {
+  id                 String    @id @default(uuid()) @db.Uuid
+  purchaseOrderId    String    @map("purchase_order_id") @db.Uuid
+  storeId            String    @map("store_id") @db.Uuid
+  productId          String    @map("product_id") @db.Uuid
+  quantity           Int
+  purchasePricePaise BigInt    @map("purchase_price_paise")
+  mrpPaise           BigInt?   @map("mrp_paise")
+  sellingPricePaise  BigInt    @map("selling_price_paise")
+  taxRateBps         Int       @default(0) @map("tax_rate_bps")
+  lineTotalPaise     BigInt    @map("line_total_paise")
+  batchNo            String?   @map("batch_no")
+  expiryDate         DateTime? @map("expiry_date") @db.Date
+
+  purchaseOrder  PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id])
+  store          Store           @relation(fields: [storeId], references: [id])
+  product        Product         @relation(fields: [productId], references: [id])
+  inventoryBatch InventoryBatch?
+
+  @@index([storeId, productId])
+  @@map("purchase_items")
+}
+
+model Customer {
+  id            String   @id @default(uuid()) @db.Uuid
+  storeId       String   @map("store_id") @db.Uuid
+  name          String?
+  phone         String?
+  gstNumber     String?  @map("gst_number")
+  loyaltyPoints Int      @default(0) @map("loyalty_points")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  store Store  @relation(fields: [storeId], references: [id])
+  sales Sale[]
+
+  @@unique([storeId, phone])
+  @@map("customers")
+}
+
+model Sale {
+  id                  String        @id @default(uuid()) @db.Uuid
+  storeId             String        @map("store_id") @db.Uuid
+  customerId          String?       @map("customer_id") @db.Uuid
+  cashierUserId       String?       @map("cashier_user_id") @db.Uuid
+  deviceId            String?       @map("device_id") @db.Uuid
+  idempotencyKey      String        @map("idempotency_key")
+  clientSaleId        String?       @map("client_sale_id")
+  clientInvoiceNumber String?       @map("client_invoice_number")
+  status              SaleStatus
+  subtotalPaise       BigInt        @map("subtotal_paise")
+  discountPaise       BigInt        @default(0) @map("discount_paise")
+  taxPaise            BigInt        @default(0) @map("tax_paise")
+  totalPaise          BigInt        @map("total_paise")
+  profitPaise         BigInt        @default(0) @map("profit_paise")
+  paymentStatus       PaymentStatus @default(UNPAID) @map("payment_status")
+  saleSource          SaleSource    @map("sale_source")
+  createdRequestId    String?       @map("created_request_id")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  syncedAt            DateTime?     @map("synced_at")
+
+  store       Store      @relation(fields: [storeId], references: [id])
+  customer    Customer?  @relation(fields: [customerId], references: [id])
+  cashierUser User?      @relation("SaleCashier", fields: [cashierUserId], references: [id])
+  device      Device?    @relation(fields: [deviceId], references: [id])
+  items       SaleItem[]
+  payments    Payment[]
+  invoice     Invoice?
+  refunds     Refund[]
+
+  @@unique([storeId, idempotencyKey])
+  @@unique([storeId, clientSaleId])
+  @@index([storeId, createdAt])
+  @@index([storeId, status])
+  @@map("sales")
+}
+
+model SaleItem {
+  id                     String  @id @default(uuid()) @db.Uuid
+  saleId                 String  @map("sale_id") @db.Uuid
+  storeId                String  @map("store_id") @db.Uuid
+  productId              String  @map("product_id") @db.Uuid
+  batchId                String? @map("batch_id") @db.Uuid
+  productNameSnapshot    String  @map("product_name_snapshot")
+  barcodeSnapshot        String? @map("barcode_snapshot")
+  hsnCodeSnapshot        String? @map("hsn_code_snapshot")
+  quantity               Int
+  unitPurchasePricePaise BigInt  @map("unit_purchase_price_paise")
+  unitSellingPricePaise  BigInt  @map("unit_selling_price_paise")
+  discountPaise          BigInt  @default(0) @map("discount_paise")
+  taxRateBps             Int     @default(0) @map("tax_rate_bps")
+  taxPaise               BigInt  @default(0) @map("tax_paise")
+  lineTotalPaise         BigInt  @map("line_total_paise")
+  profitPaise            BigInt  @default(0) @map("profit_paise")
+
+  sale        Sale            @relation(fields: [saleId], references: [id])
+  store       Store           @relation(fields: [storeId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  batch       InventoryBatch? @relation(fields: [batchId], references: [id])
+  refundItems RefundItem[]
+
+  @@index([storeId, productId])
+  @@index([saleId])
+  @@map("sale_items")
+}
+
+model Payment {
+  id                String              @id @default(uuid()) @db.Uuid
+  storeId           String              @map("store_id") @db.Uuid
+  saleId            String              @map("sale_id") @db.Uuid
+  method            PaymentMethod
+  amountPaise       BigInt              @map("amount_paise")
+  providerReference String?             @map("provider_reference")
+  status            PaymentRecordStatus @default(PENDING)
+  paidAt            DateTime?           @map("paid_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+  sale  Sale  @relation(fields: [saleId], references: [id])
+
+  @@index([storeId, saleId])
+  @@map("payments")
+}
+
+model Invoice {
+  id                   String        @id @default(uuid()) @db.Uuid
+  storeId              String        @map("store_id") @db.Uuid
+  saleId               String        @unique @map("sale_id") @db.Uuid
+  invoiceNumber        String        @map("invoice_number")
+  financialYear        String        @map("financial_year")
+  status               InvoiceStatus @default(ISSUED)
+  gstNumberSnapshot    String?       @map("gst_number_snapshot")
+  storeNameSnapshot    String        @map("store_name_snapshot")
+  storeAddressSnapshot String?       @map("store_address_snapshot")
+  qrPayload            String?       @map("qr_payload")
+  pdfUrl               String?       @map("pdf_url")
+  createdRequestId     String?       @map("created_request_id")
+  issuedAt             DateTime      @default(now()) @map("issued_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+  sale  Sale  @relation(fields: [saleId], references: [id])
+
+  @@unique([storeId, invoiceNumber])
+  @@index([storeId, financialYear])
+  @@map("invoices")
+}
+
+model InvoiceSequence {
+  id            String   @id @default(uuid()) @db.Uuid
+  storeId       String   @map("store_id") @db.Uuid
+  financialYear String   @map("financial_year")
+  prefix        String
+  nextNumber    Int      @map("next_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, financialYear])
+  @@map("invoice_sequences")
+}
+
+model Refund {
+  id                String       @id @default(uuid()) @db.Uuid
+  storeId           String       @map("store_id") @db.Uuid
+  saleId            String       @map("sale_id") @db.Uuid
+  reason            String
+  refundAmountPaise BigInt       @map("refund_amount_paise")
+  status            RefundStatus @default(PENDING_APPROVAL)
+  createdByUserId   String       @map("created_by_user_id") @db.Uuid
+  approvedByUserId  String?      @map("approved_by_user_id") @db.Uuid
+  approvedAt        DateTime?    @map("approved_at")
+  createdRequestId  String?      @map("created_request_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  store          Store        @relation(fields: [storeId], references: [id])
+  sale           Sale         @relation(fields: [saleId], references: [id])
+  createdByUser  User         @relation("RefundCreatedBy", fields: [createdByUserId], references: [id])
+  approvedByUser User?        @relation("RefundApprovedBy", fields: [approvedByUserId], references: [id])
+  items          RefundItem[]
+
+  @@index([storeId, saleId])
+  @@index([storeId, status])
+  @@map("refunds")
+}
+
+model RefundItem {
+  id                String  @id @default(uuid()) @db.Uuid
+  refundId          String  @map("refund_id") @db.Uuid
+  saleItemId        String  @map("sale_item_id") @db.Uuid
+  productId         String  @map("product_id") @db.Uuid
+  batchId           String? @map("batch_id") @db.Uuid
+  quantity          Int
+  refundAmountPaise BigInt  @map("refund_amount_paise")
+  restock           Boolean @default(true)
+
+  refund   Refund          @relation(fields: [refundId], references: [id])
+  saleItem SaleItem        @relation(fields: [saleItemId], references: [id])
+  product  Product         @relation(fields: [productId], references: [id])
+  batch    InventoryBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([refundId])
+  @@map("refund_items")
+}
+
+model Promotion {
+  id              String          @id @default(uuid()) @db.Uuid
+  storeId         String          @map("store_id") @db.Uuid
+  name            String
+  type            PromotionType
+  status          PromotionStatus @default(DRAFT)
+  startAt         DateTime?       @map("start_at")
+  endAt           DateTime?       @map("end_at")
+  createdByUserId String          @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  store         Store           @relation(fields: [storeId], references: [id])
+  createdByUser User            @relation("PromotionCreatedBy", fields: [createdByUserId], references: [id])
+  rules         PromotionRule[]
+
+  @@index([storeId, status])
+  @@map("promotions")
+}
+
+model PromotionRule {
+  id          String   @id @default(uuid()) @db.Uuid
+  promotionId String   @map("promotion_id") @db.Uuid
+  storeId     String   @map("store_id") @db.Uuid
+  ruleJson    Json     @map("rule_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+  store     Store     @relation(fields: [storeId], references: [id])
+
+  @@index([storeId, promotionId])
+  @@map("promotion_rules")
+}
+
+model IdempotencyKey {
+  id           String            @id @default(uuid()) @db.Uuid
+  storeId      String            @map("store_id") @db.Uuid
+  userId       String?           @map("user_id") @db.Uuid
+  key          String
+  requestHash  String            @map("request_hash")
+  resourceType String            @map("resource_type")
+  resourceId   String?           @map("resource_id")
+  status       IdempotencyStatus @default(PROCESSING)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  expiresAt    DateTime          @map("expires_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@unique([storeId, key])
+  @@index([storeId, resourceType, resourceId])
+  @@map("idempotency_keys")
+}
+
+model SyncEvent {
+  id                     String     @id @default(uuid()) @db.Uuid
+  requestId              String?    @map("request_id")
+  storeId                String     @map("store_id") @db.Uuid
+  deviceId               String?    @map("device_id") @db.Uuid
+  userId                 String?    @map("user_id") @db.Uuid
+  clientMutationId       String     @map("client_mutation_id")
+  entityType             String     @map("entity_type")
+  entityId               String?    @map("entity_id")
+  status                 SyncStatus @default(PENDING)
+  requiresReconciliation Boolean    @default(false) @map("requires_reconciliation")
+  attemptCount           Int        @default(0) @map("attempt_count")
+  lastErrorCode          String?    @map("last_error_code")
+  lastErrorMessage       String?    @map("last_error_message")
+  createdAt              DateTime   @default(now()) @map("created_at")
+  syncedAt               DateTime?  @map("synced_at")
+
+  store  Store   @relation(fields: [storeId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@unique([storeId, deviceId, clientMutationId])
+  @@index([storeId, status])
+  @@index([requestId])
+  @@map("sync_events")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  requestId   String?  @map("request_id")
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  storeId     String?  @map("store_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  metadata    Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  actorUser User?  @relation("AuditLogActor", fields: [actorUserId], references: [id])
+  store     Store? @relation(fields: [storeId], references: [id])
+
+  @@index([storeId, createdAt])
+  @@index([storeId, entityType, entityId])
+  @@index([requestId])
+  @@map("audit_logs")
+}

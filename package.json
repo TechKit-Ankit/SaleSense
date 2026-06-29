@@ -1,0 +1,23 @@
+{
+  "name": "salesense",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "dev": "corepack pnpm --parallel --filter @salesense/web --filter @salesense/api dev",
+    "dev:web": "corepack pnpm --filter @salesense/web dev",
+    "dev:api": "corepack pnpm --filter @salesense/api dev",
+    "build": "corepack pnpm -r --workspace-concurrency=1 --if-present build",
+    "check": "corepack pnpm -r --workspace-concurrency=1 --if-present check",
+    "format": "prettier --write .",
+    "db:validate": "prisma validate --schema packages/db/prisma/schema.prisma",
+    "db:format": "prisma format --schema packages/db/prisma/schema.prisma",
+    "test": "corepack pnpm -r --workspace-concurrency=1 --if-present test"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.3",
+    "prettier": "3.8.4",
+    "prisma": "7.8.0",
+    "turbo": "2.9.18",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@salesense/config",
+  "private": true,
+  "main": "./index.js",
+  "scripts": {
+    "check": "echo \"config package ready\""
+  }
+}
+

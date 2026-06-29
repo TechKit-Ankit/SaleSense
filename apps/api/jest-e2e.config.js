@@ -1,0 +1,13 @@
+module.exports = {
+  moduleFileExtensions: ['js', 'json', 'ts'],
+  rootDir: '.',
+  testEnvironment: 'node',
+  testRegex: '.e2e-spec.ts$',
+  transform: {
+    '^.+\\.(t|j)s$': 'ts-jest',
+  },
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^uuid$': '<rootDir>/test/mocks/uuid.js'
+  },
+};
