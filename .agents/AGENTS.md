@@ -42,3 +42,5 @@
 3. **TypeScript Strict Null Checks**: When running pnpm check, dynamic object access (e.g., dailyData[date].revenue) will fail with TS2532: Object is possibly 'undefined'. Always use the definite assignment assertion operator (dailyData[date]!.revenue) when you are algorithmically certain the key exists.
 4. **Recharts Tooltip Formatter Typings**: When building custom tooltips in echarts for Next.js, do not type the formatter's alue parameter as 
 umber because the internal library typings (ValueType) allow undefined or string values. Use ny and explicitly coerce it to a Number inside the formatter function to avoid TS2322 type mismatches.
+
+5. **NestJS Test Module Mocks**: When creating or modifying NestJS controllers/services (e.g., via `nest g`), you MUST immediately update the generated `.spec.ts` files to provide mock implementations for all constructor dependencies (especially `PrismaService` imported from `@salesense/db`). The NestJS `RootTestModule` will fail to compile during `pnpm test` with dependency resolution errors if external services are not explicitly provided (e.g., `{ provide: PrismaService, useValue: {} }`).
