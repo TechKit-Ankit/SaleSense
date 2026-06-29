@@ -21,6 +21,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { ScannerModule } from './modules/scanner/scanner.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ScannerModule } from './modules/scanner/scanner.module';
     PurchasesModule,
     SalesModule,
     ScannerModule,
+    AnalyticsModule,
   ],
   controllers: [HealthController],
   providers: [

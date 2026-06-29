@@ -34,3 +34,11 @@
 # Documentation Standards
 
 1. **Mermaid Flow Diagrams**: Whenever updating or creating architectural documentation (System Design, Database ERDs, or API Request Flows), you MUST include a `mermaid` block diagram (state diagram, sequence diagram, or ERD) alongside the text explanation. This is a strict user preference for visual clarity.
+
+# SaleSense Analytics & AI Best Practices
+
+1. **Gemini AI Model Selection**: When instantiating @google/generative-ai, always use generic aliases like gemini-flash-latest rather than hardcoding specific versions like gemini-1.5-flash. Some API keys (especially newer ones) do not have legacy access mapped and will return a 404 Model not found error on the 1beta endpoint for hardcoded versions.
+2. **Graceful Degradation for Third-Party APIs**: Always build a status-check mechanism for external API keys (e.g., isAiConfigured()). Expose this via a status endpoint (GET /ai-status) so the frontend can intercept the lack of configuration and render a dedicated visually appealing "Configuration Required" state, rather than attempting to return mock text strings or unhandled 500 errors.
+3. **TypeScript Strict Null Checks**: When running pnpm check, dynamic object access (e.g., dailyData[date].revenue) will fail with TS2532: Object is possibly 'undefined'. Always use the definite assignment assertion operator (dailyData[date]!.revenue) when you are algorithmically certain the key exists.
+4. **Recharts Tooltip Formatter Typings**: When building custom tooltips in echarts for Next.js, do not type the formatter's alue parameter as 
+umber because the internal library typings (ValueType) allow undefined or string values. Use ny and explicitly coerce it to a Number inside the formatter function to avoid TS2322 type mismatches.
