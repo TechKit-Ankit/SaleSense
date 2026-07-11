@@ -39,10 +39,32 @@ export interface StockMovement {
   } | null;
 }
 
+export interface ReconciliationItem {
+  movementId: string;
+  type: string;
+  quantityDelta: number;
+  quantityAfter: number | null;
+  referenceType: string;
+  referenceId: string;
+  createdAt: string;
+  product: { id: string; name: string } | null;
+  batch: { id: string; batchNo: string | null; currentQuantity: number } | null;
+}
+
+export interface ResolveReconciliationPayload {
+  action: 'ADJUST' | 'DISMISS';
+  countedQuantity?: number;
+  reason: string;
+}
+
 export const InventoryService = {
   getOverview: () => apiClient.get('/inventory'),
-  getMovements: (productId?: string) => 
+  getMovements: (productId?: string) =>
     apiClient.get(`/inventory/movements${productId ? `?productId=${productId}` : ''}`),
-  createAdjustment: (data: { productId: string; batchId: string; quantityDelta: number; reason: string }) => 
+  createAdjustment: (data: { productId: string; batchId: string; quantityDelta: number; reason: string }) =>
     apiClient.post('/inventory/adjustments', data),
+  getReconciliation: (): Promise<ReconciliationItem[]> =>
+    apiClient.get('/inventory/reconciliation'),
+  resolveReconciliation: (movementId: string, payload: ResolveReconciliationPayload) =>
+    apiClient.post(`/inventory/reconciliation/${movementId}/resolve`, payload),
 };

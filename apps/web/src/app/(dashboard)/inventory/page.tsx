@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 export default function InventoryPage() {
   const { activeStore } = useAuth();
   const [batches, setBatches] = useState<InventoryBatch[]>([]);
+  const [reconciliationCount, setReconciliationCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchInventory = async () => {
@@ -18,6 +19,10 @@ export default function InventoryPage() {
     try {
       const data = await InventoryService.getOverview();
       setBatches(data || []);
+      // Best-effort badge count; cashiers lack the role, so ignore failures.
+      InventoryService.getReconciliation()
+        .then((items) => setReconciliationCount(items?.length ?? 0))
+        .catch(() => setReconciliationCount(0));
     } catch (e) {
       toast.error("Failed to load inventory");
     } finally {
@@ -39,6 +44,11 @@ export default function InventoryPage() {
           <p className="text-muted-foreground">Manage your current stock levels.</p>
         </div>
         <div className="flex gap-2">
+          {reconciliationCount > 0 && (
+            <Button variant="destructive" onClick={() => window.location.href = '/inventory/reconciliation'}>
+              Reconcile Stock <Badge variant="outline" className="ml-2 bg-white">{reconciliationCount}</Badge>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => window.location.href = '/inventory/movements'}>
             View Movements
           </Button>

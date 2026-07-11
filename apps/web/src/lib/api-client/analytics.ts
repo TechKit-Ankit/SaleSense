@@ -29,6 +29,10 @@ export interface AnalyticsDeadStock {
 export interface AnalyticsInventoryHealth {
   lowStockCount: number;
   thresholdUsed: number;
+  reconciliationCount?: number;
+  expiredCount?: number;
+  expiringSoonCount?: number;
+  expiryWindowDays?: number;
 }
 
 export interface ChatResponse {

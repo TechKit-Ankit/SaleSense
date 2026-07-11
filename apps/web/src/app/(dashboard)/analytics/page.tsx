@@ -164,6 +164,13 @@ export default function AnalyticsPage() {
               <div>
                 <p className="text-sm text-gray-500 font-medium">Low Stock Items</p>
                 <h3 className="text-2xl font-bold text-red-600 mt-1">{health?.lowStockCount || 0}</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  {(health?.expiredCount ?? 0) > 0 && <span className="text-red-500 font-medium">{health?.expiredCount} expired · </span>}
+                  {(health?.expiringSoonCount ?? 0) > 0 && <span className="text-amber-600 font-medium">{health?.expiringSoonCount} expiring in {health?.expiryWindowDays ?? 30}d · </span>}
+                  {(health?.reconciliationCount ?? 0) > 0
+                    ? <a href="/inventory/reconciliation" className="text-indigo-600 underline font-medium">{health?.reconciliationCount} need reconciliation</a>
+                    : <span>inventory healthy</span>}
+                </p>
               </div>
               <div className="bg-red-50 p-3 rounded-lg text-red-600"><PackageX size={24} /></div>
             </div>

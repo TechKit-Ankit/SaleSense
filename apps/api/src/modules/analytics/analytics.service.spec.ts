@@ -6,7 +6,8 @@ const mockPrismaService = {
   store: { findUnique: jest.fn() },
   sale: { aggregate: jest.fn(), findMany: jest.fn() },
   saleItem: { groupBy: jest.fn() },
-  inventoryBatch: { findMany: jest.fn(), groupBy: jest.fn() },
+  inventoryBatch: { findMany: jest.fn(), groupBy: jest.fn(), count: jest.fn() },
+  stockMovement: { count: jest.fn() },
   product: { findMany: jest.fn() },
 };
 
@@ -132,15 +133,45 @@ describe('AnalyticsService', () => {
   });
 
   describe('getInventoryHealth', () => {
-    it('counts products under the low-stock threshold', async () => {
+    it('returns low-stock, reconciliation, expired and expiring-soon counters', async () => {
+      mockPrismaService.store.findUnique.mockResolvedValue({ timezone: 'Asia/Kolkata' });
       mockPrismaService.inventoryBatch.groupBy.mockResolvedValue([
         { productId: 'p1', _sum: { currentQuantity: 3 } },
         { productId: 'p2', _sum: { currentQuantity: 8 } },
       ]);
+      mockPrismaService.stockMovement.count.mockResolvedValue(2);
+      mockPrismaService.inventoryBatch.count
+        .mockResolvedValueOnce(1) // expired
+        .mockResolvedValueOnce(4); // expiring soon
 
       const result = await service.getInventoryHealth('store_1');
 
-      expect(result).toEqual({ lowStockCount: 2, thresholdUsed: 10 });
+      expect(result).toEqual({
+        lowStockCount: 2,
+        thresholdUsed: 10,
+        reconciliationCount: 2,
+        expiredCount: 1,
+        expiringSoonCount: 4,
+        expiryWindowDays: 30,
+      });
+      // reconciliation counter must query flagged movements only
+      expect(mockPrismaService.stockMovement.count).toHaveBeenCalledWith({
+        where: { storeId: 'store_1', requiresReconciliation: true },
+      });
+    });
+
+    it('uses a 30-day window boundary for expiring-soon batches', async () => {
+      mockPrismaService.store.findUnique.mockResolvedValue({ timezone: 'Asia/Kolkata' });
+      mockPrismaService.inventoryBatch.groupBy.mockResolvedValue([]);
+      mockPrismaService.stockMovement.count.mockResolvedValue(0);
+      mockPrismaService.inventoryBatch.count.mockResolvedValue(0);
+
+      await service.getInventoryHealth('store_1');
+
+      const expiringCall = mockPrismaService.inventoryBatch.count.mock.calls[1]![0];
+      const { gte, lt } = expiringCall.where.expiryDate;
+      const windowMs = lt.getTime() - gte.getTime();
+      expect(windowMs).toBe(30 * 24 * 60 * 60 * 1000);
     });
   });
 });

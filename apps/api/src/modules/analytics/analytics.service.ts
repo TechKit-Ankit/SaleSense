@@ -191,29 +191,59 @@ export class AnalyticsService {
   }
 
   async getInventoryHealth(storeId: string) {
-    const lowStockThreshold = 10;
-    
-    const batches = await this.prisma.inventoryBatch.groupBy({
-      by: ['productId'],
-      where: {
-        storeId,
-        status: 'ACTIVE',
-      },
-      _sum: {
-        currentQuantity: true,
-      },
-      having: {
-        currentQuantity: {
-          _sum: {
-            lt: lowStockThreshold,
-          }
-        }
-      }
-    });
+    const lowStockThreshold = 10; // MVP: hardcoded; future per-store setting
+    const expiryWindowDays = 30; // MVP: hardcoded lookahead (see design doc 0005)
+
+    // "Today" is the store's local calendar date (ADR-0005 rule 1). Batch
+    // expiryDate is a @db.Date (UTC midnight), so we build the comparable
+    // boundary from the store-local date string.
+    const timeZone = await this.getStoreTimezone(storeId);
+    const todayIso = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const today = new Date(todayIso);
+    const windowEnd = new Date(today);
+    windowEnd.setUTCDate(windowEnd.getUTCDate() + expiryWindowDays);
+
+    const [lowStockGroups, reconciliationCount, expiredCount, expiringSoonCount] =
+      await Promise.all([
+        this.prisma.inventoryBatch.groupBy({
+          by: ['productId'],
+          where: { storeId, status: 'ACTIVE' },
+          _sum: { currentQuantity: true },
+          having: { currentQuantity: { _sum: { lt: lowStockThreshold } } },
+        }),
+        this.prisma.stockMovement.count({
+          where: { storeId, requiresReconciliation: true },
+        }),
+        this.prisma.inventoryBatch.count({
+          where: {
+            storeId,
+            status: 'ACTIVE',
+            currentQuantity: { gt: 0 },
+            expiryDate: { lt: today },
+          },
+        }),
+        this.prisma.inventoryBatch.count({
+          where: {
+            storeId,
+            status: 'ACTIVE',
+            currentQuantity: { gt: 0 },
+            expiryDate: { gte: today, lt: windowEnd },
+          },
+        }),
+      ]);
 
     return {
-      lowStockCount: batches.length,
+      lowStockCount: lowStockGroups.length,
       thresholdUsed: lowStockThreshold,
+      reconciliationCount,
+      expiredCount,
+      expiringSoonCount,
+      expiryWindowDays,
     };
   }
 }
