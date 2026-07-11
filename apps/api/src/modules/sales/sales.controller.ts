@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { StoreAccessGuard } from '../../common/guards/store-access.guard';
 import { StoreId } from '../../common/decorators/store-id.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestId } from '../../common/decorators/request-id.decorator';
 
 @UseGuards(JwtAuthGuard, StoreAccessGuard)
 @Controller('sales')
@@ -16,9 +17,8 @@ export class SalesController {
     @StoreId() storeId: string,
     @CurrentUser('id') userId: string,
     @Body() createSaleDto: CreateSaleDto,
+    @RequestId() requestId: string,
   ) {
-    // Generate a quick request ID if we don't have trace IDs configured yet
-    const requestId = `req_${Date.now()}`;
     return this.salesService.createSale(storeId, userId, createSaleDto, requestId);
   }
 
@@ -27,8 +27,8 @@ export class SalesController {
     @StoreId() storeId: string,
     @CurrentUser('id') userId: string,
     @Body() syncSalesDto: SyncSalesDto,
+    @RequestId() requestId: string,
   ) {
-    const requestId = `sync_${Date.now()}`;
     return this.salesService.syncSales(storeId, userId, syncSalesDto.sales, requestId);
   }
 }

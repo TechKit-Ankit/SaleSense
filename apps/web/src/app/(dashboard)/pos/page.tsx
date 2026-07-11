@@ -149,10 +149,8 @@ export default function PosPage() {
     }
 
     try {
-      const res = await SalesClient.createSale(activeStore.id, payload);
-      if (res.success) {
-        alert('Sale completed! Invoice: ' + res.data.invoice?.invoiceNumber);
-      }
+      const sale = await SalesClient.createSale(activeStore.id, payload);
+      alert('Sale completed! Invoice: ' + (sale?.invoice?.invoiceNumber ?? 'N/A'));
     } catch (e: any) {
       console.error(e);
       // Fallback to offline queue if network error during request

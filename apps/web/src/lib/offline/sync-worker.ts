@@ -1,5 +1,6 @@
 import { syncQueue } from './sync-queue';
 import { SalesClient } from '../api-client/sales';
+import { toast } from 'sonner';
 
 let isSyncing = false;
 
@@ -25,46 +26,58 @@ export const startBackgroundSync = (storeId: string) => {
 
 export const attemptSync = async (storeId: string) => {
   if (isSyncing || !navigator.onLine) return;
-  
+
   try {
     isSyncing = true;
     const pendingSales = await syncQueue.getPendingSales(storeId);
-    
-    if (pendingSales.length === 0) {
-      isSyncing = false;
-      return;
-    }
+
+    if (pendingSales.length === 0) return;
 
     console.log(`Syncing ${pendingSales.length} offline sales...`);
 
-    // Prepare payload
-    const payloads = pendingSales.map(s => {
-      return {
-        ...s.payload,
-        saleSource: 'OFFLINE_SYNC', // Rewrite source so backend knows it was delayed
-      };
-    });
+    // Ensure the backend records these as delayed/offline sales.
+    const payloads = pendingSales.map((s) => ({
+      ...s.payload,
+      saleSource: 'OFFLINE_SYNC' as const,
+    }));
 
-    const response = await SalesClient.syncSales(storeId, payloads);
-    
-    if (response.success && response.data) {
-      const { synced, failed } = response.data;
-      
-      const keysToRemove: string[] = [];
+    const result = await SalesClient.syncSales(storeId, payloads);
+    if (!result) return;
 
-      // Clean up successfully synced
-      synced.forEach((s: any) => {
-        const match = pendingSales.find(p => p.payload.clientSaleId === s.clientSaleId);
-        if (match) keysToRemove.push(match.idempotencyKey);
-      });
+    const { synced = [], failed = [] } = result;
 
-      // Handle failed ones (e.g., bad request, missing products). 
-      // For MVP, we'll keep them in queue unless it's a fatal error, but typically we might alert user.
-      
-      if (keysToRemove.length > 0) {
-        await syncQueue.removeMultiple(keysToRemove);
-        console.log(`Successfully synced ${keysToRemove.length} sales.`);
-      }
+    // De-queue every sale the server accepted. Match on the client mutation id
+    // (clientSaleId, falling back to the idempotency key used as the queue key).
+    const keysToRemove: string[] = [];
+    let reconciliationCount = 0;
+
+    for (const s of synced) {
+      const match = pendingSales.find(
+        (p) => (p.payload.clientSaleId ?? p.idempotencyKey) === s.clientMutationId,
+      );
+      if (match) keysToRemove.push(match.idempotencyKey);
+      if (s.requiresReconciliation) reconciliationCount += 1;
+    }
+
+    if (keysToRemove.length > 0) {
+      await syncQueue.removeMultiple(keysToRemove);
+      console.log(`Successfully synced ${keysToRemove.length} sales.`);
+    }
+
+    // A synced sale that drove stock negative is still committed — surface it
+    // so an owner/manager can reconcile inventory.
+    if (reconciliationCount > 0) {
+      toast.warning(
+        `${reconciliationCount} synced sale(s) need stock reconciliation.`,
+      );
+    }
+
+    // Failed sales stay in the queue and retry on the next tick.
+    if (failed.length > 0) {
+      console.warn(
+        `${failed.length} offline sale(s) failed to sync and remain queued`,
+        failed.map((f) => f.error?.code),
+      );
     }
   } catch (error) {
     console.error('Offline sync failed', error);

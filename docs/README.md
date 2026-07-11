@@ -33,6 +33,7 @@ We will build the project in this order:
 | `adr/0001-tech-stack.md` | Next.js PWA, NestJS API, PostgreSQL, Prisma, TypeScript monorepo |
 | `adr/0002-ui-stack.md` | shadcn/ui, Tailwind CSS, Radix primitives through shadcn, lucide-react |
 | `adr/0003-observability-error-handling.md` | Graceful errors, structured logs, Sentry, request correlation, OpenTelemetry upgrade path |
+| `adr/0004-sales-transaction-rules.md` | Sales flow: online stock guard vs offline reconciliation, Indian-FY invoicing, idempotency, sale audit logs |
 
 ## Current Design Drafts
 

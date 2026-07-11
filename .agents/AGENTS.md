@@ -1,3 +1,7 @@
+> **Canonical cross-tool guidance is in [`/AGENTS.md`](../AGENTS.md)** (project invariants,
+> sales-flow rules, working agreement). This file holds the framework-specific gotchas
+> below. Architectural decisions and their rationale live in [`/docs/adr/`](../docs/adr).
+
 # Prisma v7 Learnings & Best Practices
 
 1. **Prisma v7 Connection Setup**: Do NOT use the `url` property inside the `datasource db` block in `schema.prisma`. Prisma v7 removes support for this.

@@ -23,18 +23,38 @@ export interface CreateSalePayload {
   payments: SalePaymentPayload[];
 }
 
-export const SalesClient = {
-  createSale: async (storeId: string, payload: CreateSalePayload) => {
-    const res = await api.post(`/sales`, payload, {
-      headers: { 'x-store-id': storeId },
-    });
-    return res.data;
-  },
+export interface SyncWarning {
+  code: string;
+  message: string;
+}
 
-  syncSales: async (storeId: string, sales: CreateSalePayload[]) => {
-    const res = await api.post(`/sales/sync`, { sales }, {
-      headers: { 'x-store-id': storeId },
-    });
-    return res.data;
-  },
+export interface SyncedSaleResult {
+  clientSaleId: string | null;
+  clientMutationId: string;
+  saleId: string;
+  invoiceId: string | null;
+  status: 'SYNCED';
+  requiresReconciliation: boolean;
+  warnings: SyncWarning[];
+}
+
+export interface FailedSaleResult {
+  clientSaleId: string | null;
+  clientMutationId: string;
+  status: 'FAILED';
+  error: { code: string; message: string };
+}
+
+export interface SyncSalesResult {
+  synced: SyncedSaleResult[];
+  failed: FailedSaleResult[];
+}
+
+export const SalesClient = {
+  // Note: `api.post` already unwraps the response envelope and returns `data`.
+  createSale: (storeId: string, payload: CreateSalePayload) =>
+    api.post(`/sales`, payload, { headers: { 'x-store-id': storeId } }),
+
+  syncSales: (storeId: string, sales: CreateSalePayload[]): Promise<SyncSalesResult> =>
+    api.post(`/sales/sync`, { sales }, { headers: { 'x-store-id': storeId } }),
 };

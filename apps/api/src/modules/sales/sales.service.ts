@@ -3,6 +3,8 @@ import { CreateSaleDto } from './dto/create-sale.dto';
 import { PrismaService } from '@salesense/db';
 import {
   SaleStatus,
+  SaleSource,
+  SyncStatus,
   PaymentStatus,
   PaymentRecordStatus,
   StockMovementType,
@@ -10,6 +12,25 @@ import {
   InvoiceStatus,
   Prisma,
 } from '@salesense/db';
+import { BusinessException } from '../../common/errors/business-exception.js';
+import {
+  INSUFFICIENT_STOCK,
+  ERROR_CODE_HTTP_STATUS,
+  STOCK_RECONCILIATION_REQUIRED,
+  INTERNAL_ERROR,
+} from '../../common/errors/error-codes.js';
+
+/**
+ * Returns the Indian financial year label (April–March) for a given date,
+ * e.g. `2026-2027`. Used for per-store, per-FY invoice numbering as specified
+ * in the database model and API design.
+ */
+export function getIndianFinancialYear(date: Date): string {
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0 = January
+  const startYear = month >= 3 ? year : year - 1; // FY starts in April (month index 3)
+  return `${startYear}-${startYear + 1}`;
+}
 
 @Injectable()
 export class SalesService {
@@ -25,7 +46,8 @@ export class SalesService {
       return existing; // Already processed
     }
 
-    return this.prisma.$transaction(
+    try {
+      return await this.prisma.$transaction(
       async (tx) => {
         // Fetch Store for snapshotting
         const store = await tx.store.findUnique({ where: { id: storeId } });
@@ -53,6 +75,25 @@ export class SalesService {
             if (!batch) throw new BadRequestException(`Batch ${batchId} not found`);
             
             unitPurchasePricePaise = batch.purchasePricePaise ?? 0n;
+
+            // Online stock guard: block overselling for live sales unless the
+            // store opts into negative stock. Offline sync is intentionally
+            // allowed to oversell and is reconciled afterwards (see design docs).
+            if (
+              dto.saleSource !== SaleSource.OFFLINE_SYNC &&
+              !store.allowNegativeStock &&
+              batch.currentQuantity < itemDto.quantity
+            ) {
+              throw new BusinessException(
+                INSUFFICIENT_STOCK,
+                'Insufficient stock for this product.',
+                ERROR_CODE_HTTP_STATUS[INSUFFICIENT_STOCK] ?? 409,
+                {
+                  productId: itemDto.productId,
+                  availableQuantity: batch.currentQuantity,
+                },
+              );
+            }
 
             // Deduct stock
             const newQty = batch.currentQuantity - itemDto.quantity;
@@ -114,7 +155,7 @@ export class SalesService {
                              (paidAmount > 0n ? PaymentStatus.PARTIALLY_PAID : PaymentStatus.UNPAID);
 
         // 4. Generate Invoice Sequence
-        const financialYear = new Date().getFullYear().toString();
+        const financialYear = getIndianFinancialYear(new Date());
         const sequence = await tx.invoiceSequence.upsert({
           where: { storeId_financialYear: { storeId, financialYear } },
           create: { storeId, financialYear, prefix: 'INV', nextNumber: 1 },
@@ -158,11 +199,28 @@ export class SalesService {
           include: { items: true, payments: true, invoice: true },
         });
 
-        // 6. Create StockMovements referencing the sale
+        // 6. Write audit log for the sale creation (safe metadata only).
+        await tx.auditLog.create({
+          data: {
+            requestId: requestId ?? null,
+            actorUserId: cashierUserId,
+            storeId,
+            action: 'SALE_CREATED',
+            entityType: 'sale',
+            entityId: sale.id,
+            metadata: {
+              invoiceId: sale.invoice?.id ?? null,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+        });
+
+        // 7. Create StockMovements referencing the sale
         for (const item of sale.items) {
           if (item.batchId) {
             // fetch updated batch qty for 'quantityAfter'
             const batch = await tx.inventoryBatch.findUnique({ where: { id: item.batchId } });
+            const afterQty = batch?.currentQuantity ?? 0;
             await tx.stockMovement.create({
               data: {
                 storeId,
@@ -170,7 +228,10 @@ export class SalesService {
                 batchId: item.batchId,
                 type: StockMovementType.SALE_OUT,
                 quantityDelta: -item.quantity,
-                quantityAfter: batch?.currentQuantity ?? 0,
+                quantityAfter: afterQty,
+                // Stock went negative (only reachable via offline sync or
+                // allowNegativeStock) — flag it for owner/manager review.
+                requiresReconciliation: afterQty < 0,
                 referenceType: StockReferenceType.SALE,
                 referenceId: sale.id,
                 createdByUserId: cashierUserId,
@@ -183,23 +244,162 @@ export class SalesService {
         return sale;
       },
       { timeout: 10000, maxWait: 10000 }
-    );
+      );
+    } catch (e) {
+      // Concurrent duplicate: two identical requests raced past the pre-check
+      // and the unique (storeId, idempotencyKey) constraint rejected the second.
+      // Return the sale the winning request created instead of a 500.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        const winner = await this.prisma.sale.findUnique({
+          where: { storeId_idempotencyKey: { storeId, idempotencyKey: dto.idempotencyKey } },
+          include: { items: true, payments: true, invoice: true },
+        });
+        if (winner) return winner;
+      }
+      throw e;
+    }
   }
 
   async syncSales(storeId: string, cashierUserId: string, dtos: CreateSaleDto[], requestId: string) {
-    const results = { synced: [], failed: [] };
-    
+    const synced: SyncedSaleResult[] = [];
+    const failed: FailedSaleResult[] = [];
+
     for (const dto of dtos) {
+      const clientMutationId = dto.clientSaleId ?? dto.idempotencyKey;
       try {
         const sale = await this.createSale(storeId, cashierUserId, dto, requestId);
-        // @ts-ignore
-        results.synced.push({ clientSaleId: dto.clientSaleId, saleId: sale.id, invoiceId: sale.invoice?.id });
-      } catch (e: any) {
-        // @ts-ignore
-        results.failed.push({ clientSaleId: dto.clientSaleId, error: e.message });
+
+        // A completed offline sale is never rejected; if it drove stock
+        // negative we flag it for reconciliation and warn the client.
+        const reconCount = await this.prisma.stockMovement.count({
+          where: {
+            storeId,
+            referenceType: StockReferenceType.SALE,
+            referenceId: sale.id,
+            requiresReconciliation: true,
+          },
+        });
+        const requiresReconciliation = reconCount > 0;
+
+        await this.recordSyncEvent(storeId, cashierUserId, dto, {
+          entityId: sale.id,
+          status: SyncStatus.SYNCED,
+          requiresReconciliation,
+          requestId,
+        });
+
+        synced.push({
+          clientSaleId: dto.clientSaleId ?? null,
+          clientMutationId,
+          saleId: sale.id,
+          invoiceId: sale.invoice?.id ?? null,
+          status: SyncStatus.SYNCED,
+          requiresReconciliation,
+          warnings: requiresReconciliation
+            ? [
+                {
+                  code: STOCK_RECONCILIATION_REQUIRED,
+                  message: 'Sale synced, but stock is now negative for one or more items.',
+                },
+              ]
+            : [],
+        });
+      } catch (e: unknown) {
+        const code = e instanceof BusinessException ? e.code : INTERNAL_ERROR;
+        const message =
+          e instanceof BusinessException
+            ? e.message
+            : 'Sync failed for this sale. It remains queued for retry.';
+
+        // Best-effort: never let sync-event bookkeeping mask the real failure.
+        await this.recordSyncEvent(storeId, cashierUserId, dto, {
+          entityId: null,
+          status: SyncStatus.FAILED,
+          requiresReconciliation: false,
+          requestId,
+          error: { code, message },
+        }).catch(() => undefined);
+
+        failed.push({
+          clientSaleId: dto.clientSaleId ?? null,
+          clientMutationId,
+          status: SyncStatus.FAILED,
+          error: { code, message },
+        });
       }
     }
 
-    return results;
+    return { synced, failed };
   }
+
+  /**
+   * Upserts a `sync_events` row for one offline mutation. Keyed by the client
+   * mutation id so retries update the same row (incrementing attemptCount)
+   * rather than duplicating it.
+   */
+  private async recordSyncEvent(
+    storeId: string,
+    userId: string,
+    dto: CreateSaleDto,
+    opts: {
+      entityId: string | null;
+      status: SyncStatus;
+      requiresReconciliation: boolean;
+      requestId: string;
+      error?: { code: string; message: string };
+    },
+  ): Promise<void> {
+    const clientMutationId = dto.clientSaleId ?? dto.idempotencyKey;
+    const deviceId = dto.deviceId ?? null;
+
+    const existing = await this.prisma.syncEvent.findFirst({
+      where: { storeId, deviceId, clientMutationId },
+    });
+
+    const data = {
+      requestId: opts.requestId ?? null,
+      storeId,
+      deviceId,
+      userId: userId ?? null,
+      clientMutationId,
+      entityType: 'sale',
+      entityId: opts.entityId,
+      status: opts.status,
+      requiresReconciliation: opts.requiresReconciliation,
+      lastErrorCode: opts.error?.code ?? null,
+      lastErrorMessage: opts.error?.message ?? null,
+      syncedAt: opts.status === SyncStatus.SYNCED ? new Date() : null,
+    };
+
+    if (existing) {
+      await this.prisma.syncEvent.update({
+        where: { id: existing.id },
+        data: { ...data, attemptCount: existing.attemptCount + 1 },
+      });
+    } else {
+      await this.prisma.syncEvent.create({ data: { ...data, attemptCount: 1 } });
+    }
+  }
+}
+
+export interface SyncWarning {
+  code: string;
+  message: string;
+}
+
+export interface SyncedSaleResult {
+  clientSaleId: string | null;
+  clientMutationId: string;
+  saleId: string;
+  invoiceId: string | null;
+  status: SyncStatus;
+  requiresReconciliation: boolean;
+  warnings: SyncWarning[];
+}
+
+export interface FailedSaleResult {
+  clientSaleId: string | null;
+  clientMutationId: string;
+  status: SyncStatus;
+  error: { code: string; message: string };
 }

@@ -13,13 +13,14 @@ export class ApiError extends Error {
 
 interface ApiOptions extends RequestInit {
   data?: unknown;
+  params?: Record<string, string | number | boolean | undefined | null> | undefined;
 }
 
 class ApiClient {
   private baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api/v1';
 
   private async fetchWithAuth(path: string, options: ApiOptions = {}): Promise<any> {
-    const { data, headers: customHeaders, ...restOptions } = options;
+    const { data, headers: customHeaders, params, ...restOptions } = options;
     const token = typeof window !== 'undefined' ? localStorage.getItem('salesense_access_token') : null;
     const storeId = typeof window !== 'undefined' ? localStorage.getItem('salesense_active_store_id') : null;
 
@@ -34,7 +35,19 @@ class ApiClient {
       headers.set('x-store-id', storeId);
     }
 
-    const url = `${this.baseUrl}${path}`;
+    let url = `${this.baseUrl}${path}`;
+    if (params) {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+          search.append(key, String(value));
+        }
+      }
+      const queryString = search.toString();
+      if (queryString) {
+        url += (url.includes('?') ? '&' : '?') + queryString;
+      }
+    }
     const body = data ? (data instanceof FormData ? data : JSON.stringify(data)) : undefined;
 
     let response = await fetch(url, { ...restOptions, headers, ...(body !== undefined ? { body } : {}) });
@@ -106,20 +119,20 @@ class ApiClient {
     window.location.href = '/login';
   }
 
-  get(path: string, options?: ApiOptions) {
-    return this.fetchWithAuth(path, { ...options, method: 'GET' });
+  get<T = any>(path: string, options?: ApiOptions): Promise<T> {
+    return this.fetchWithAuth(path, { ...options, method: 'GET' }) as Promise<T>;
   }
 
-  post(path: string, data?: unknown, options?: ApiOptions) {
-    return this.fetchWithAuth(path, { ...options, method: 'POST', data });
+  post<T = any>(path: string, data?: unknown, options?: ApiOptions): Promise<T> {
+    return this.fetchWithAuth(path, { ...options, method: 'POST', data }) as Promise<T>;
   }
 
-  patch(path: string, data?: unknown, options?: ApiOptions) {
-    return this.fetchWithAuth(path, { ...options, method: 'PATCH', data });
+  patch<T = any>(path: string, data?: unknown, options?: ApiOptions): Promise<T> {
+    return this.fetchWithAuth(path, { ...options, method: 'PATCH', data }) as Promise<T>;
   }
 
-  delete(path: string, options?: ApiOptions) {
-    return this.fetchWithAuth(path, { ...options, method: 'DELETE' });
+  delete<T = any>(path: string, options?: ApiOptions): Promise<T> {
+    return this.fetchWithAuth(path, { ...options, method: 'DELETE' }) as Promise<T>;
   }
 }
 

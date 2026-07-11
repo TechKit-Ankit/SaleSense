@@ -44,15 +44,15 @@ export default function AnalyticsPage() {
           analyticsApi.getTopProducts(storeId, params),
           analyticsApi.getDeadStock(storeId, params),
           analyticsApi.getInventoryHealth(storeId),
-          analyticsApi.getAiStatus(storeId).catch(() => ({ data: { isConfigured: false } }))
+          analyticsApi.getAiStatus(storeId).catch(() => ({ isConfigured: false }))
         ]);
 
-        setSummary(sumRes.data);
-        setRevenueChart(revRes.data);
-        setTopProducts(topRes.data);
-        setDeadStock(deadRes.data);
-        setHealth(healthRes.data);
-        setIsAiConfigured(aiRes.data.isConfigured);
+        setSummary(sumRes);
+        setRevenueChart(revRes);
+        setTopProducts(topRes);
+        setDeadStock(deadRes);
+        setHealth(healthRes);
+        setIsAiConfigured(aiRes.isConfigured);
       } catch (error) {
         console.error("Failed to load analytics", error);
       } finally {
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
 
     try {
       const res = await analyticsApi.chatWithAi(activeStore.id, msg);
-      setChatHistory(prev => [...prev, { role: 'ai', content: res.data.response }]);
+      setChatHistory(prev => [...prev, { role: 'ai', content: res.response }]);
     } catch (error) {
       setChatHistory(prev => [...prev, { role: 'ai', content: "Sorry, I couldn't process that request right now." }]);
     } finally {
