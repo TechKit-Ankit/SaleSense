@@ -8,6 +8,25 @@ Gemini, etc.) working in this repo. Read this first.
   [`.agents/AGENTS.md`](.agents/AGENTS.md) — still authoritative for those details.
 - Deep rationale for decisions lives in [`docs/adr/`](docs/adr).
 
+## MANDATORY pre-flight — before building ANY feature or module
+
+This gate exists because Phase 4 was once built without it: the agent worked from the
+stale README summary, never saw the design docs' priorities, and wrote the design doc
+*after* the code (see ADR-0005). Do not repeat that. In order:
+
+1. **Read `docs/README.md`** (the docs index), then the design docs relevant to your
+   task — at minimum the matching `docs/api/`, `docs/system-design/`, and
+   `docs/database/` files. The README status section is a summary, **never the spec**.
+2. **Check `docs/adr/`** for decisions that constrain your task. If your approach
+   contradicts an ADR or design doc, **stop and surface it** — either follow the doc or
+   record a superseding ADR first. Never silently deviate.
+3. **Design before code**: if the feature has no design doc/section, write or extend one
+   (with a Mermaid diagram for flows) *before* implementing.
+4. **Map the blast radius**: grep for every consumer of anything you change (shared
+   clients, response shapes, DTOs). Cross-app contract changes ship in lockstep.
+5. **Test as you go** (see Working agreement) and **update docs + README status** in the
+   same change set. Documentation written after the fact is how drift starts.
+
 ## What this is
 
 SaleSense is a retail intelligence platform for small/medium stores: POS billing,

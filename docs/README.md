@@ -34,6 +34,7 @@ We will build the project in this order:
 | `adr/0002-ui-stack.md` | shadcn/ui, Tailwind CSS, Radix primitives through shadcn, lucide-react |
 | `adr/0003-observability-error-handling.md` | Graceful errors, structured logs, Sentry, request correlation, OpenTelemetry upgrade path |
 | `adr/0004-sales-transaction-rules.md` | Sales flow: online stock guard vs offline reconciliation, Indian-FY invoicing, idempotency, sale audit logs |
+| `adr/0005-phase4-sequencing.md` | Phase 4 order re-affirmed (simulators before deeper LLM), LLM chat retained, analytics corrections (timezone, date keys, locked value, chat validation) |
 
 ## Current Design Drafts
 

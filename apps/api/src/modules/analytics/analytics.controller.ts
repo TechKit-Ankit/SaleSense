@@ -6,6 +6,7 @@ import { StoreAccessGuard } from '../../common/guards/store-access.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { StoreId } from '../../common/decorators/store-id.decorator';
 import { StoreUserRole } from '@salesense/db';
+import { ChatDto } from './dto/chat.dto';
 
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, StoreAccessGuard)
@@ -68,9 +69,9 @@ export class AnalyticsController {
   @Post('chat')
   async chatWithAi(
     @StoreId() storeId: string,
-    @Body('message') message: string,
+    @Body() dto: ChatDto,
   ) {
-    const aiResponse = await this.aiService.generateChatResponse(storeId, message);
+    const aiResponse = await this.aiService.generateChatResponse(storeId, dto.message);
     return { response: aiResponse };
   }
 }

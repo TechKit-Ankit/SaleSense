@@ -58,7 +58,16 @@ pnpm dev
   - **Companion Scanner Mode**: 1-Click QR pairing to use mobile phone as a wireless barcode scanner via WebSockets relay.
   - **Offline Sync**: Local IndexedDB queue for resilient POS operations without internet.
 
-### What Remains (Next Phases):
-- **Phase 4 - Analytics & AI Insights**:
-  - Aggregation logic for top-selling items and revenue charts.
-  - Antigravity AI integration for forecasting and anomaly detection.
+- **Phase 4 (partial) - Analytics & AI Insights**:
+  - Analytics aggregation: summary KPIs, revenue/profit trends, top products, dead stock, inventory health.
+  - AI Advisor chat (Google Gemini) with store-scoped context injection and graceful degradation when `GEMINI_API_KEY` is absent.
+  - Sales-flow hardening: online stock guard, offline reconciliation flags, Indian-FY invoicing, sale audit logs (`docs/adr/0004`).
+
+### What Remains (per `docs/adr/0005-phase4-sequencing.md`):
+- **P4.1 — Reconciliation loop**: `GET /inventory/reconciliation` + resolve endpoint, expiry/reconciliation counts in inventory health.
+- **P4.2 — Promotion simulators**: discount and BOGO profitability calculators (the differentiator).
+- **P4.3 — Rule-based advisor**: `/advisor/recommendations` from dead-stock/margin/expiry rules.
+- **P4.4 — Deeper AI**: feed simulator and recommendation data into the LLM advisor; forecasting.
+
+> **Note for AI agents:** the status above is a summary, not the spec. Follow the
+> mandatory pre-flight in [`AGENTS.md`](AGENTS.md) before building anything.

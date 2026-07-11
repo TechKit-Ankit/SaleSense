@@ -1,10 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@salesense/db';
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, format } from 'date-fns';
+import { subDays } from 'date-fns';
 
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Resolves the store's IANA timezone for business-day grouping.
+   * Reports must bucket sales by the shop's local day, not the server's —
+   * a 11:30 PM IST sale belongs to that IST date even on a UTC server.
+   */
+  private async getStoreTimezone(storeId: string): Promise<string> {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { timezone: true },
+    });
+    return store?.timezone || 'Asia/Kolkata';
+  }
 
   async getSummary(storeId: string, startDate?: string, endDate?: string) {
     const start = startDate ? new Date(startDate) : subDays(new Date(), 30);
@@ -52,10 +65,20 @@ export class AnalyticsService {
       orderBy: { createdAt: 'asc' },
     });
 
+    // ISO keys (yyyy-mm-dd) in the store's timezone: unambiguous across years
+    // and lexicographically sortable. 'en-CA' formats as YYYY-MM-DD natively.
+    const timeZone = await this.getStoreTimezone(storeId);
+    const dayFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+
     const dailyData: Record<string, { revenue: number; profit: number }> = {};
-    
+
     sales.forEach((sale) => {
-      const dateKey = format(sale.createdAt, 'MMM dd');
+      const dateKey = dayFormatter.format(sale.createdAt);
       if (!dailyData[dateKey]) {
         dailyData[dateKey] = { revenue: 0, profit: 0 };
       }
@@ -63,11 +86,13 @@ export class AnalyticsService {
       dailyData[dateKey].profit += Number(sale.profitPaise) / 100;
     });
 
-    return Object.keys(dailyData).map((date) => ({
-      date,
-      revenue: dailyData[date]!.revenue,
-      profit: dailyData[date]!.profit,
-    }));
+    return Object.keys(dailyData)
+      .sort()
+      .map((date) => ({
+        date,
+        revenue: dailyData[date]!.revenue,
+        profit: dailyData[date]!.profit,
+      }));
   }
 
   async getTopProducts(storeId: string, startDate?: string, endDate?: string) {
@@ -121,41 +146,48 @@ export class AnalyticsService {
 
     const soldProductIds = soldItems.map((i) => i.productId);
 
-    // 2. Get active inventory for products NOT in soldItems, ordered by stock volume
-    const deadBatches = await this.prisma.inventoryBatch.groupBy({
-      by: ['productId'],
+    // 2. Get active inventory for products NOT in soldItems. Fetch per-batch
+    // rows so locked value can be computed at PURCHASE COST (what capital is
+    // actually tied up), not at hoped-for retail value (see ADR-0005).
+    const deadBatchRows = await this.prisma.inventoryBatch.findMany({
       where: {
         storeId,
         status: 'ACTIVE',
+        currentQuantity: { gt: 0 },
         productId: { notIn: soldProductIds },
       },
-      _sum: {
+      select: {
+        productId: true,
         currentQuantity: true,
+        purchasePricePaise: true,
       },
-      orderBy: {
-        _sum: {
-          currentQuantity: 'desc',
-        },
-      },
-      take: 10,
     });
+
+    // Aggregate per product: total quantity + cost-basis locked value.
+    const perProduct = new Map<string, { stockQuantity: number; lockedValuePaise: bigint }>();
+    for (const row of deadBatchRows) {
+      const entry = perProduct.get(row.productId) ?? { stockQuantity: 0, lockedValuePaise: 0n };
+      entry.stockQuantity += row.currentQuantity;
+      entry.lockedValuePaise += BigInt(row.currentQuantity) * row.purchasePricePaise;
+      perProduct.set(row.productId, entry);
+    }
+
+    const top = [...perProduct.entries()]
+      .sort((a, b) => b[1].stockQuantity - a[1].stockQuantity)
+      .slice(0, 10);
 
     // 3. Resolve product names
-    const deadProductIds = deadBatches.map(b => b.productId);
     const products = await this.prisma.product.findMany({
-      where: { id: { in: deadProductIds } },
-      select: { id: true, name: true, sellingPricePaise: true },
+      where: { id: { in: top.map(([productId]) => productId) } },
+      select: { id: true, name: true },
     });
 
-    return deadBatches.map(batch => {
-      const product = products.find(p => p.id === batch.productId);
-      return {
-        productId: batch.productId,
-        productName: product?.name || 'Unknown',
-        stockQuantity: batch._sum.currentQuantity || 0,
-        lockedValue: (batch._sum.currentQuantity || 0) * (Number(product?.sellingPricePaise ?? 0) / 100),
-      };
-    });
+    return top.map(([productId, agg]) => ({
+      productId,
+      productName: products.find((p) => p.id === productId)?.name || 'Unknown',
+      stockQuantity: agg.stockQuantity,
+      lockedValue: Number(agg.lockedValuePaise) / 100,
+    }));
   }
 
   async getInventoryHealth(storeId: string) {

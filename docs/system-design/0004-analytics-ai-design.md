@@ -78,6 +78,34 @@ stateDiagram-v2
     Unconfigured --> Configured: Key added & Server Restart
 ```
 
+## Data Correctness Rules (per ADR-0005)
+
+These rules were added when hardening the original implementation; the tests in
+`analytics.service.spec.ts` enforce each one.
+
+```mermaid
+flowchart TD
+    A[Sale createdAt UTC] --> B[Resolve Store.timezone<br/>default Asia/Kolkata]
+    B --> C[Bucket by ISO day key yyyy-mm-dd<br/>via Intl.DateTimeFormat en-CA]
+    C --> D[Sort keys lexicographically<br/>= chronological for ISO]
+    D --> E[API returns ISO date keys]
+    E --> F[Frontend formats for display<br/>formatIsoDateLabel → '11 Jul']
+    E --> G[CSV export keeps raw ISO<br/>spreadsheet-friendly]
+```
+
+1. **Business-day grouping uses the store timezone**, never server-local time. A sale
+   at 11:30 PM IST belongs to that IST date even when the API runs on a UTC host.
+2. **Chart date keys are ISO `yyyy-mm-dd`** — unambiguous across years and naturally
+   sortable. Display formatting is a frontend concern only.
+3. **Dead-stock `lockedValue` is computed at purchase cost** (sum of
+   `currentQuantity × purchasePricePaise` per batch), because locked capital is what
+   was paid, not the hoped-for retail value.
+4. **AI chat input is validated** (`ChatDto`: required string, max 2000 chars) to bound
+   Gemini token cost and reject malformed payloads before they reach the LLM.
+5. Money conversions divide integer paise by 100 at the API boundary only; internal
+   arithmetic stays in `BigInt` paise.
+
 ## Security Considerations
 1. **RBAC**: All Analytics endpoints are protected by `StoreAccessGuard`. Only `OWNER` and `MANAGER` roles can access the dashboard.
 2. **Data Segregation**: The AI service strictly filters data by `storeId`. Even if a prompt injection attack occurs, the LLM is only aware of the specific store's data explicitly fetched and injected by `AnalyticsService`.
+3. **Input validation**: `POST /analytics/chat` accepts only a validated `ChatDto`; the global `ValidationPipe` (whitelist mode) strips unknown fields.

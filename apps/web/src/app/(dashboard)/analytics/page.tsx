@@ -6,7 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { Download, Bot, Sparkles, Send, Loader2, PackageX, TrendingUp, DollarSign, ListOrdered, LockKeyhole } from "lucide-react";
 import { analyticsApi, AnalyticsSummary, AnalyticsRevenuePoint, AnalyticsTopProduct, AnalyticsDeadStock, AnalyticsInventoryHealth } from "@/lib/api-client/analytics";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, formatIsoDateLabel } from "@/lib/utils/formatters";
 
 export default function AnalyticsPage() {
   const { activeStore } = useAuth();
@@ -180,10 +180,11 @@ export default function AnalyticsPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={revenueChart} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                      <XAxis dataKey="date" tickFormatter={formatIsoDateLabel} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
-                      <RechartsTooltip 
+                      <RechartsTooltip
                         formatter={(value: any) => formatCurrency(Number(value))}
+                        labelFormatter={(label: any) => formatIsoDateLabel(String(label))}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                       />
                       <Legend iconType="circle" />
