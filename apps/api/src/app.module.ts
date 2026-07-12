@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { LoggerModule } from "nestjs-pino";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { HealthController } from "./health.controller";
 import { DatabaseModule } from "./database/database.module";
@@ -28,6 +29,9 @@ import { AdvisorModule } from './modules/advisor/advisor.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Generous global ceiling; strict per-route limits via @Throttle on
+    // login (brute-force) and AI chat (Gemini cost) — production checklist Gate 1.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     LoggerModule.forRoot({
       pinoHttp: {
         transport:
@@ -66,6 +70,10 @@ import { AdvisorModule } from './modules/advisor/advisor.module';
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
     {
       provide: APP_GUARD,

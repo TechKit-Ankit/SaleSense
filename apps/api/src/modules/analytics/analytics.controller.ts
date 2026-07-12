@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AnalyticsService } from './analytics.service';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -66,6 +67,7 @@ export class AnalyticsController {
     return { isConfigured: this.aiService.isAiConfigured() };
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // Gemini cost protection
   @Post('chat')
   async chatWithAi(
     @StoreId() storeId: string,
