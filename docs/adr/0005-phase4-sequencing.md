@@ -74,7 +74,11 @@ flowchart LR
 | P4.1 Reconciliation loop | ✅ Done | `814df71`; `system-design/0005` |
 | P4.2 Promotion simulators | ✅ Done | `system-design/0006` (incl. plan-vs-implementation delta) |
 | P4.3 Rule-based advisor | ✅ Done | `system-design/0007` (incl. plan-vs-implementation delta) |
-| P4.4 Deepen LLM advisor | ⏳ Next | design doc required before code |
+| P4.4 Deepen LLM advisor | ✅ Done | `system-design/0008` — **Phase 4 complete** |
+
+Deferred out of Phase 4: `POST /advisor/forecast` (thin data, see design-0008),
+promotions CRUD (behind the simulator per this ADR), chat rate limiting
+(production-hardening checklist), full `idempotency_keys` table (ADR-0004).
 
 ## Consequences
 

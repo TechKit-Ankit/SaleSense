@@ -71,7 +71,7 @@ export class AnalyticsController {
     @StoreId() storeId: string,
     @Body() dto: ChatDto,
   ) {
-    const aiResponse = await this.aiService.generateChatResponse(storeId, dto.message);
+    const aiResponse = await this.aiService.generateChatResponse(storeId, dto.message, dto.history);
     return { response: aiResponse };
   }
 }

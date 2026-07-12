@@ -69,8 +69,9 @@ pnpm dev
 
 - **P4.3 - Rule-based advisor**: 6 deterministic rules (stock-outs on bestsellers, below-cost pricing, expired/expiring stock, dead stock, reconciliation) surfaced as a dashboard Advisor card with action links (`docs/system-design/0007`).
 
-### What Remains (per `docs/adr/0005-phase4-sequencing.md`):
-- **P4.4 — Deeper AI**: feed simulator and recommendation data into the LLM advisor; forecasting.
+- **P4.4 - Grounded AI Advisor**: the Gemini chat now receives the rule-based advisor's findings and inventory-health counters as context, supports multi-turn history (8 turns), and directs owners to the in-app simulator instead of inventing math (`docs/system-design/0008`).
+
+**Phase 4 is complete** (see `docs/adr/0005-phase4-sequencing.md` for the status table and deferred items: demand forecasting, promotions CRUD, chat rate limiting, full idempotency-keys table).
 
 > **Note for AI agents:** the status above is a summary, not the spec. Follow the
 > mandatory pre-flight in [`AGENTS.md`](AGENTS.md) before building anything.

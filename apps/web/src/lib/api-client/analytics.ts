@@ -39,6 +39,11 @@ export interface ChatResponse {
   response: string;
 }
 
+export interface ChatTurn {
+  role: 'user' | 'model';
+  content: string;
+}
+
 export interface AiStatusResponse {
   isConfigured: boolean;
 }
@@ -73,10 +78,10 @@ export const analyticsApi = {
       headers: { 'x-store-id': storeId },
     }),
 
-  chatWithAi: (storeId: string, message: string) =>
+  chatWithAi: (storeId: string, message: string, history?: ChatTurn[]) =>
     apiClient.post<ChatResponse>(
       `/analytics/chat`,
-      { message },
+      { message, ...(history && history.length > 0 ? { history } : {}) },
       { headers: { 'x-store-id': storeId } }
     ),
 

@@ -88,7 +88,11 @@ export default function AnalyticsPage() {
     setChatLoading(true);
 
     try {
-      const res = await analyticsApi.chatWithAi(activeStore.id, msg);
+      // Prior turns (before this message), capped at 8 — server truncates too.
+      const history = chatHistory
+        .slice(-8)
+        .map((t) => ({ role: t.role === 'ai' ? ('model' as const) : ('user' as const), content: t.content }));
+      const res = await analyticsApi.chatWithAi(activeStore.id, msg, history);
       setChatHistory(prev => [...prev, { role: 'ai', content: res.response }]);
     } catch (error) {
       setChatHistory(prev => [...prev, { role: 'ai', content: "Sorry, I couldn't process that request right now." }]);
