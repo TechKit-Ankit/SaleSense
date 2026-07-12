@@ -1,12 +1,38 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { AdvisorClient, Recommendation, RecommendationSeverity } from "@/lib/api-client/advisor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, IndianRupee, TrendingUp, Package, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, IndianRupee, TrendingUp, Package, AlertCircle, Lightbulb } from "lucide-react";
+
+const SEVERITY_STYLES: Record<RecommendationSeverity, { badge: string; label: string }> = {
+  HIGH: { badge: "bg-red-100 text-red-700 border-red-200", label: "Act now" },
+  MEDIUM: { badge: "bg-amber-100 text-amber-700 border-amber-200", label: "At risk" },
+  INFO: { badge: "bg-blue-100 text-blue-700 border-blue-200", label: "Review" },
+};
 
 export default function DashboardPage() {
   const { user, activeStore } = useAuth();
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [advisorLoaded, setAdvisorLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!activeStore?.id) return;
+    setAdvisorLoaded(false);
+    // Best-effort: cashiers lack the Owner/Manager role — hide the card silently.
+    AdvisorClient.getRecommendations()
+      .then((res) => {
+        setRecommendations(res?.recommendations ?? []);
+        setAdvisorLoaded(true);
+      })
+      .catch(() => {
+        setRecommendations([]);
+        setAdvisorLoaded(false);
+      });
+  }, [activeStore?.id]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,6 +54,55 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {advisorLoaded && (
+        <Card className="border-indigo-100">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lightbulb className="h-5 w-5 text-indigo-600" />
+              Advisor
+              {recommendations.length > 0 && (
+                <Badge variant="outline">{recommendations.length}</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recommendations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                All clear — no urgent actions detected. Bestsellers are stocked, nothing is
+                expiring, and inventory is reconciled.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recommendations.map((rec, i) => (
+                  <div
+                    key={`${rec.code}-${rec.productId ?? i}`}
+                    className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 border rounded-lg p-3"
+                  >
+                    <span
+                      className={`text-xs font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap self-start md:self-center ${SEVERITY_STYLES[rec.severity].badge}`}
+                    >
+                      {SEVERITY_STYLES[rec.severity].label}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{rec.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{rec.detail}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap self-start md:self-center"
+                      onClick={() => (window.location.href = rec.action.href)}
+                    >
+                      {rec.action.label}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

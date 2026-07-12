@@ -96,7 +96,7 @@ corepack pnpm build
 ## Docs map
 
 - **Current phase progress:** the Implementation Status table in
-  `docs/adr/0005-phase4-sequencing.md` (P4.0–P4.2 done; next: P4.3 rule-based advisor).
+  `docs/adr/0005-phase4-sequencing.md` (P4.0–P4.3 done; next: P4.4 deeper LLM advisor).
   Each implemented design doc carries a "Plan vs Implementation" delta section — read it
   before extending that module.
 - `docs/adr/` — architecture decisions (start at 0001)

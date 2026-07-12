@@ -67,8 +67,9 @@ pnpm dev
 
 - **P4.2 - Promotion simulators**: discount and BOGO profitability calculators with break-even uplift and scenario tables, Promotions page (`docs/system-design/0006`).
 
+- **P4.3 - Rule-based advisor**: 6 deterministic rules (stock-outs on bestsellers, below-cost pricing, expired/expiring stock, dead stock, reconciliation) surfaced as a dashboard Advisor card with action links (`docs/system-design/0007`).
+
 ### What Remains (per `docs/adr/0005-phase4-sequencing.md`):
-- **P4.3 — Rule-based advisor**: `/advisor/recommendations` from dead-stock/margin/expiry rules.
 - **P4.4 — Deeper AI**: feed simulator and recommendation data into the LLM advisor; forecasting.
 
 > **Note for AI agents:** the status above is a summary, not the spec. Follow the
