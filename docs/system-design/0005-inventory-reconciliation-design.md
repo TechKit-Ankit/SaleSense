@@ -149,6 +149,14 @@ here so it is a known decision, not an oversight.
 - Analytics: inventory-health counts expired/expiring/reconciliation correctly
   (store-timezone boundary case for expiry).
 
+## Plan vs Implementation (delta record)
+
+Implemented as designed, with one mechanism detail: the inventory-page badge count
+comes from a best-effort call to `GET /inventory/reconciliation` (list length) rather
+than the analytics inventory-health endpoint — one fewer cross-module dependency, and
+the call fails silently for cashiers who lack the Owner/Manager role. Behavior is as
+specified (button appears only when items exist).
+
 ## Open decisions for review
 
 1. **Resolve semantics** — recommended above: `ADJUST | DISMISS`, reason always

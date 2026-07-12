@@ -66,6 +66,16 @@ flowchart LR
 | Orphaned debug scripts removed (`fetch-test.js`, `fetch-test-models.js`, `test.js`, `test-ai.ts`) | Debris from the original Gemini debugging session; verified unreferenced. |
 | `GEMINI_API_KEY` documented in `.env.example` | It was a real config input missing from the template. |
 
+## Implementation Status
+
+| Step | Status | Commit / Doc |
+| --- | --- | --- |
+| P4.0 Analytics hardening + agent governance | ✅ Done | `2e80233`; corrections table above |
+| P4.1 Reconciliation loop | ✅ Done | `814df71`; `system-design/0005` |
+| P4.2 Promotion simulators | ✅ Done | `system-design/0006` (incl. plan-vs-implementation delta) |
+| P4.3 Rule-based advisor | ⏳ Next | design doc required before code |
+| P4.4 Deepen LLM advisor | Pending | after P4.3 |
+
 ## Consequences
 
 - Phase 4 proceeds in a defensible order with the differentiator (simulators) next in

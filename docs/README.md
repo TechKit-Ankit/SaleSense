@@ -43,6 +43,7 @@ We will build the project in this order:
 | `system-design/0001-system-design-v1.md` | High-level product architecture and flows |
 | `system-design/0004-analytics-ai-design.md` | Phase 4 analytics aggregation, AI advisor flows, data correctness rules |
 | `system-design/0005-inventory-reconciliation-design.md` | P4.1 reconciliation loop: list/resolve endpoints, inventory-health counters, UI — implemented |
+| `system-design/0006-promotion-simulators-design.md` | P4.2 discount & BOGO profitability simulators: math, contracts, scenarios — implemented |
 | `database/0001-observability-data-requirements.md` | Database requirements for audit, sync, and request traceability |
 | `database/0002-database-model-v1.md` | Draft relational database model for review |
 | `database/0003-prisma-schema-draft.md` | Prisma schema validation notes and migration caveats |

@@ -11,7 +11,8 @@ import {
   Users, 
   BarChart3, 
   Settings,
-  ScanBarcode
+  ScanBarcode,
+  BadgePercent
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -61,6 +62,11 @@ const items = [
     title: "Analytics",
     href: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Promotions",
+    href: "/promotions",
+    icon: BadgePercent,
   },
   {
     title: "Mobile Scanner",

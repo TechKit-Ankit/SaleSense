@@ -52,6 +52,9 @@ Turborepo + pnpm monorepo — `apps/web` (Next.js PWA), `apps/api` (NestJS), `pa
    optional generic, e.g. `apiClient.get<Foo>()`). **Never read `.data` again** on the
    result; pass query params via the `params` option, not by hand-building the URL.
    Double-unwrapping silently broke POS checkout, offline sync, and analytics.
+8. **Percentages cross the API as integer basis points** (bps, 10% = 1000) — same
+   convention as `taxRateBps` — so requests stay integer-only alongside paise money.
+   Response `*Pct` fields are display-only ratios (may have one decimal), never money.
 
 ## Sales flow rules (see ADR-0004 for full rationale)
 
@@ -92,6 +95,10 @@ corepack pnpm build
 
 ## Docs map
 
+- **Current phase progress:** the Implementation Status table in
+  `docs/adr/0005-phase4-sequencing.md` (P4.0–P4.2 done; next: P4.3 rule-based advisor).
+  Each implemented design doc carries a "Plan vs Implementation" delta section — read it
+  before extending that module.
 - `docs/adr/` — architecture decisions (start at 0001)
 - `docs/system-design/`, `docs/database/`, `docs/api/` — design + contracts
 - `docs/developer-reference/` — setup, folder structure, error/logging conventions

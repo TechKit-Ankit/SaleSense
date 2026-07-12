@@ -65,8 +65,9 @@ pnpm dev
 
 - **P4.1 - Reconciliation loop**: `/inventory/reconciliation` list + ADJUST/DISMISS resolve endpoints, expiry/reconciliation counters in inventory health, reconciliation UI (`docs/system-design/0005`).
 
+- **P4.2 - Promotion simulators**: discount and BOGO profitability calculators with break-even uplift and scenario tables, Promotions page (`docs/system-design/0006`).
+
 ### What Remains (per `docs/adr/0005-phase4-sequencing.md`):
-- **P4.2 — Promotion simulators**: discount and BOGO profitability calculators (the differentiator).
 - **P4.3 — Rule-based advisor**: `/advisor/recommendations` from dead-stock/margin/expiry rules.
 - **P4.4 — Deeper AI**: feed simulator and recommendation data into the LLM advisor; forecasting.
 
