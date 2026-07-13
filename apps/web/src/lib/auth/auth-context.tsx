@@ -117,8 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    // Fire and forget
-    apiClient.post("/auth/logout").catch(() => {});
+    // Fire and forget — sends the refresh token so the server revokes the
+    // whole session family (design doc 0010); then clear locally regardless.
+    const refreshToken = localStorage.getItem("salesense_refresh_token");
+    apiClient.post("/auth/logout", refreshToken ? { refreshToken } : {}).catch(() => {});
     localStorage.removeItem("salesense_access_token");
     localStorage.removeItem("salesense_refresh_token");
     localStorage.removeItem("salesense_active_store_id");

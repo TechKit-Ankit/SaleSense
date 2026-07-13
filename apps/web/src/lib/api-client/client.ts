@@ -67,6 +67,12 @@ class ApiClient {
             const refreshData = await refreshRes.json();
             if (refreshData.success && refreshData.data.accessToken) {
               localStorage.setItem('salesense_access_token', refreshData.data.accessToken);
+              // Rotation (design doc 0010): the old refresh token is now
+              // revoked — persist the new one or the next refresh would
+              // replay a dead token and burn the whole session family.
+              if (refreshData.data.refreshToken) {
+                localStorage.setItem('salesense_refresh_token', refreshData.data.refreshToken);
+              }
               // Retry the original request
               headers.set('Authorization', `Bearer ${refreshData.data.accessToken}`);
               response = await fetch(url, { ...restOptions, headers, ...(body !== undefined ? { body } : {}) });

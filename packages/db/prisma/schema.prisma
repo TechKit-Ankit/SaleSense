@@ -169,6 +169,7 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
   storeUsers              StoreUser[]
+  refreshSessions         RefreshSession[]
   sentInvitations         StoreInvitation[] @relation("InvitationSentBy")
   createdInventoryBatches InventoryBatch[]  @relation("InventoryBatchCreatedBy")
   createdStockMovements   StockMovement[]   @relation("StockMovementCreatedBy")
@@ -183,6 +184,23 @@ model User {
   auditLogs               AuditLog[]        @relation("AuditLogActor")
 
   @@map("users")
+}
+
+model RefreshSession {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  familyId     String    @map("family_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_sessions")
 }
 
 model Store {

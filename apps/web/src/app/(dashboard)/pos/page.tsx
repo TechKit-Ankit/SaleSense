@@ -37,10 +37,8 @@ export default function PosPage() {
   useEffect(() => {
     if (!activeStore) return;
     
-    // Load products
-    ProductsService.findAll().then((res: any) => {
-      if (res.success) setProducts(res.data);
-    });
+    // Load products (apiClient returns the unwrapped array — AGENTS.md rule 7)
+    ProductsService.findAll().then((data: any) => setProducts(data || []));
 
     // Offline tracker
     setIsOnline(navigator.onLine);
@@ -60,17 +58,26 @@ export default function PosPage() {
 
   const initScanner = () => {
     if (socket) return;
-    const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+    // Crypto-random 8-char code, unambiguous alphabet (~40 bits) — design
+    // doc 0010. 32-char alphabet divides 256 evenly, so no modulo bias.
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    const newPin = Array.from(bytes, (b) => alphabet[b % 32]).join('');
     setPin(newPin);
 
     // Connect to WebSocket Gateway (assuming backend runs on 4000)
     // Need NEXT_PUBLIC_API_URL or relative if proxied
     const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws')?.replace('/api/v1', '') || 'ws://localhost:4000';
-    
-    const newSocket = io(`${wsUrl}/scanner`);
-    
+
+    // The laptop authenticates its socket — only logged-in staff can HOST
+    // a scanner room (phones still join with the PIN alone).
+    const newSocket = io(`${wsUrl}/scanner`, {
+      auth: { token: localStorage.getItem('salesense_access_token') },
+    });
+
     newSocket.on('connect', () => {
-      newSocket.emit('join_room', { pin: newPin });
+      newSocket.emit('create_room', { pin: newPin });
     });
 
     newSocket.on('device_connected', () => {

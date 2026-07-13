@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@salesense/db';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomUUID } from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { BusinessException } from '../../common/errors/business-exception';
@@ -64,7 +65,7 @@ export class AuthService {
     });
 
     const accessToken = this.generateAccessToken(result.user.id, result.user.email);
-    const refreshToken = this.generateRefreshToken(result.user.id);
+    const refreshToken = await this.issueRefreshToken(result.user.id);
 
     const { passwordHash: _, ...userWithoutPassword } = result.user;
 
@@ -103,8 +104,13 @@ export class AuthService {
       throw BusinessException.unauthorized(ERROR_CODES.UNAUTHENTICATED, 'User is not active');
     }
 
+    // Opportunistic hygiene: drop this user's long-expired sessions.
+    await this.prisma.refreshSession.deleteMany({
+      where: { userId: user.id, expiresAt: { lt: new Date() } },
+    });
+
     const accessToken = this.generateAccessToken(user.id, user.email);
-    const refreshToken = this.generateRefreshToken(user.id);
+    const refreshToken = await this.issueRefreshToken(user.id);
 
     const { passwordHash: _, ...userWithoutPassword } = user;
 
@@ -115,30 +121,68 @@ export class AuthService {
     };
   }
 
+  /**
+   * Rotation + theft detection (design doc 0010):
+   * - valid session  -> rotate: new refresh token issued, old session revoked
+   *   with lineage (`replacedById`).
+   * - REVOKED session presented again -> token reuse: someone holds a stolen
+   *   copy. The whole family is revoked; both parties must re-login.
+   * - unknown hash / expired -> 401.
+   */
   async refresh(refreshToken: string) {
+    let payload: any;
     try {
-      const payload = this.jwtService.verify(refreshToken, {
+      payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
       });
-
-      if (payload.type !== 'refresh') {
-        throw new Error('Invalid token type');
-      }
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-      });
-
-      if (!user || user.status !== 'ACTIVE') {
-        throw new Error('User not found or inactive');
-      }
-
-      const accessToken = this.generateAccessToken(user.id, user.email);
-
-      return { accessToken };
-    } catch (error) {
+      if (payload.type !== 'refresh') throw new Error('Invalid token type');
+    } catch {
       throw BusinessException.unauthorized(ERROR_CODES.UNAUTHENTICATED, 'Invalid refresh token');
     }
+
+    const tokenHash = this.hashToken(refreshToken);
+    const session = await this.prisma.refreshSession.findUnique({ where: { tokenHash } });
+
+    if (!session) {
+      throw BusinessException.unauthorized(ERROR_CODES.UNAUTHENTICATED, 'Invalid refresh token');
+    }
+
+    if (session.revokedAt) {
+      // Reuse of a rotated token — assume theft, burn the whole family.
+      await this.prisma.refreshSession.updateMany({
+        where: { familyId: session.familyId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw BusinessException.unauthorized(ERROR_CODES.UNAUTHENTICATED, 'Invalid refresh token');
+    }
+
+    if (session.expiresAt < new Date()) {
+      throw BusinessException.unauthorized(ERROR_CODES.UNAUTHENTICATED, 'Invalid refresh token');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || user.status !== 'ACTIVE') {
+      throw BusinessException.unauthorized(ERROR_CODES.UNAUTHENTICATED, 'Invalid refresh token');
+    }
+
+    const accessToken = this.generateAccessToken(user.id, user.email);
+    const newRefreshToken = await this.issueRefreshToken(user.id, session.familyId, session.id);
+
+    return { accessToken, refreshToken: newRefreshToken };
+  }
+
+  /** Revokes the session family server-side — logout becomes real. */
+  async logout(refreshToken?: string) {
+    if (!refreshToken) return { revoked: false };
+    const session = await this.prisma.refreshSession.findUnique({
+      where: { tokenHash: this.hashToken(refreshToken) },
+    });
+    if (!session) return { revoked: false };
+    await this.prisma.refreshSession.updateMany({
+      where: { familyId: session.familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { revoked: true };
   }
 
   async getProfile(userId: string) {
@@ -174,11 +218,47 @@ export class AuthService {
 
   private generateRefreshToken(userId: string) {
     return this.jwtService.sign(
-      { sub: userId, type: 'refresh' },
+      // jti guarantees hash-unique tokens even for same-second logins.
+      { sub: userId, type: 'refresh', jti: randomUUID() },
       {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
         expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d') as any,
       },
     );
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Signs a refresh token AND records its session (design doc 0010). Only the
+   * SHA-256 hash is stored; expiry mirrors the JWT's own exp claim. On
+   * rotation the previous session is revoked with lineage in one transaction.
+   */
+  private async issueRefreshToken(userId: string, familyId?: string, rotatedFromId?: string) {
+    const token = this.generateRefreshToken(userId);
+    const decoded: any = this.jwtService.decode(token);
+    const data = {
+      id: randomUUID(),
+      userId,
+      familyId: familyId ?? randomUUID(),
+      tokenHash: this.hashToken(token),
+      expiresAt: new Date((decoded?.exp ?? Math.floor(Date.now() / 1000) + 7 * 86400) * 1000),
+    };
+
+    if (rotatedFromId) {
+      await this.prisma.$transaction([
+        this.prisma.refreshSession.create({ data }),
+        this.prisma.refreshSession.update({
+          where: { id: rotatedFromId },
+          data: { revokedAt: new Date(), replacedById: data.id },
+        }),
+      ]);
+    } else {
+      await this.prisma.refreshSession.create({ data });
+    }
+
+    return token;
   }
 }

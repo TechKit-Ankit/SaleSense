@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { User } from '@salesense/db';
@@ -49,9 +50,10 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout current session' })
-  async logout() {
-    // With JWT and localStorage, logout is mostly a client-side operation
-    // For enhanced security, we could implement a token blocklist here in the future
-    return { message: 'Logged out successfully' };
+  async logout(@Body() dto: LogoutDto) {
+    // Revokes the refresh-session family server-side (design doc 0010);
+    // without a token it degrades to the old client-side-only behaviour.
+    const result = await this.authService.logout(dto.refreshToken);
+    return { message: 'Logged out successfully', ...result };
   }
 }

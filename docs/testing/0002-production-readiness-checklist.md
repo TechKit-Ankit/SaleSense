@@ -54,8 +54,8 @@ per the Deployment shape section; Gate 2 items remain before public production.
 
 | # | Item | Severity | Notes |
 | --- | --- | --- | --- |
-| 1 | Refresh-token rotation/revocation; reconsider localStorage | High | Stolen refresh token currently valid 7 days; logout is client-side only. |
-| 2 | Scanner WebSocket hardening | Medium | 6-digit `Math.random()` PIN with unlimited join attempts is brute-forceable; impact is low (barcode inject/snoop). Crypto-random longer code + join throttle + restrict WS `origin: '*'`. Deferral decision (owner): acceptable for pilot. |
+| 1 | Refresh-token rotation/revocation | ✅ Done (Wave B) | `refresh_sessions` table (first post-baseline migration, applied via `migrate deploy`). Rotation + `replacedById` lineage + family-burn theft detection + real server-side logout — all live-verified (stolen replay → 401, victim token also dead, post-logout refresh → 401). localStorage decision recorded in design-0010: cookie migration deferred until deployment topology is known. |
+| 2 | Scanner WebSocket hardening | ✅ Done (Wave B) | Room creation requires an authenticated handshake (POS laptop JWT); phone stays PIN-only by design but joins only EXISTING rooms; 8-char crypto-random codes (~40 bits); 5 failed joins → disconnect; relay restricted to room members; CORS origin from env. |
 | 3 | Refunds module | High (feature) | Schema + approval flow designed since day one (`db 0002`, `api 0001`); not built. Needed before real customer disputes. |
 | 4 | CI pipeline (GitHub Actions) | ✅ Done (Wave A) | `.github/workflows/ci.yml`: install → prisma generate → build packages → typecheck both apps → 90 API tests → both builds → schema validate. First push proves it live. `migrate deploy` moves to the release workflow at deploy time. |
 | 5 | Sentry both apps | ✅ Done (Wave A) | `@sentry/nestjs` via `instrument.ts` + capture in `GlobalExceptionFilter` (5xx only, tagged requestId/route); `@sentry/nextjs` via instrumentation files. Optional at runtime (no DSN = no-op). Pino-vs-Sentry division recorded in `developer-reference/error-handling-and-logging.md`. Source-map upload deferred to deploy (with `@sentry/cli` build flip). |

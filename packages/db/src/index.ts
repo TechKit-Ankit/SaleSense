@@ -4,6 +4,7 @@ export { Prisma } from "@prisma/client";
 
 export type {
   User,
+  RefreshSession,
   Store,
   StoreUser,
   Device,
