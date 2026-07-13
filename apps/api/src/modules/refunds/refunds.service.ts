@@ -169,19 +169,23 @@ export class RefundsService {
   ) {
     const refund = await this.prisma.refund.findUnique({ where: { id: refundId } });
     if (!refund || refund.storeId !== storeId) this.notFound('Refund');
-    if (refund.status !== RefundStatus.PENDING_APPROVAL) {
-      throw new BusinessException(
-        SALE_ALREADY_PROCESSED,
-        `Refund is ${refund.status}, not pending approval`,
-        ERROR_CODE_HTTP_STATUS[SALE_ALREADY_PROCESSED] ?? 409,
-      );
-    }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.refund.update({
-        where: { id: refundId },
+      // Atomic claim: only ONE concurrent request can move the row out of
+      // PENDING_APPROVAL — the guard is in the WHERE, not a prior read
+      // (TOCTOU protection found in the Wave C.1 review).
+      const claimed = await tx.refund.updateMany({
+        where: { id: refundId, status: RefundStatus.PENDING_APPROVAL },
         data: { status: to, approvedByUserId: userId, approvedAt: new Date() },
       });
+      if (claimed.count === 0) {
+        throw new BusinessException(
+          SALE_ALREADY_PROCESSED,
+          'Refund is not pending approval',
+          ERROR_CODE_HTTP_STATUS[SALE_ALREADY_PROCESSED] ?? 409,
+        );
+      }
+      const updated = await tx.refund.findUnique({ where: { id: refundId } });
       await tx.auditLog.create({
         data: {
           requestId: requestId ?? null,
@@ -208,15 +212,23 @@ export class RefundsService {
       include: { items: true, sale: { include: { items: true } } },
     });
     if (!refund || refund.storeId !== storeId) this.notFound('Refund');
-    if (refund.status !== RefundStatus.APPROVED) {
-      throw new BusinessException(
-        REFUND_APPROVAL_REQUIRED,
-        `Refund is ${refund.status} — it must be APPROVED before completion`,
-        ERROR_CODE_HTTP_STATUS[REFUND_APPROVAL_REQUIRED] ?? 409,
-      );
-    }
 
     return this.prisma.$transaction(async (tx) => {
+      // 0. Atomic claim: flips APPROVED→COMPLETED with the guard in the
+      //    WHERE clause, so two concurrent completes can never BOTH restock
+      //    (TOCTOU double-restock protection, Wave C.1 review).
+      const claimed = await tx.refund.updateMany({
+        where: { id: refundId, status: RefundStatus.APPROVED },
+        data: { status: RefundStatus.COMPLETED },
+      });
+      if (claimed.count === 0) {
+        throw new BusinessException(
+          REFUND_APPROVAL_REQUIRED,
+          `Refund is ${refund.status === RefundStatus.APPROVED ? 'already being completed' : refund.status} — it must be APPROVED before completion`,
+          ERROR_CODE_HTTP_STATUS[REFUND_APPROVAL_REQUIRED] ?? 409,
+        );
+      }
+
       // 1. Restock: only items flagged restock AND sold from a batch.
       for (const item of refund.items) {
         if (!item.restock || !item.batchId) continue;
@@ -241,10 +253,9 @@ export class RefundsService {
         });
       }
 
-      // 2. Mark completed.
-      const completed = await tx.refund.update({
+      // 2. Reload the completed refund (status already claimed in step 0).
+      const completed = await tx.refund.findUnique({
         where: { id: refundId },
-        data: { status: RefundStatus.COMPLETED },
         include: { items: true },
       });
 

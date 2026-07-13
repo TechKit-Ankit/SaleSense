@@ -4,7 +4,7 @@ import { RefundsService } from './refunds.service';
 import { PrismaService } from '@salesense/db';
 
 const mockTx: any = {
-  refund: { create: jest.fn(), update: jest.fn() },
+  refund: { create: jest.fn(), update: jest.fn(), updateMany: jest.fn(), findUnique: jest.fn() },
   refundItem: { findMany: jest.fn() },
   inventoryBatch: { findUnique: jest.fn(), update: jest.fn() },
   stockMovement: { create: jest.fn() },
@@ -115,22 +115,25 @@ describe('RefundsService', () => {
   });
 
   describe('approve / reject (state machine = idempotency)', () => {
-    it('approves a pending refund with approver identity', async () => {
+    it('approves via an atomic claim (status guard in the WHERE, not a prior read)', async () => {
       mockPrismaService.refund.findUnique.mockResolvedValue({ id: 'ref_1', storeId: 'store_1', saleId: 'sale_1', status: 'PENDING_APPROVAL' });
-      mockTx.refund.update.mockResolvedValue({ id: 'ref_1', status: 'APPROVED' });
+      mockTx.refund.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.refund.findUnique.mockResolvedValue({ id: 'ref_1', status: 'APPROVED' });
 
       const result = await service.approve('store_1', 'manager_1', 'ref_1');
 
-      expect(result.status).toBe('APPROVED');
-      expect(mockTx.refund.update).toHaveBeenCalledWith(
+      expect(result!.status).toBe('APPROVED');
+      expect(mockTx.refund.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: { id: 'ref_1', status: 'PENDING_APPROVAL' },
           data: expect.objectContaining({ status: 'APPROVED', approvedByUserId: 'manager_1' }),
         }),
       );
     });
 
-    it('409s when transitioning a refund that is not pending', async () => {
+    it('409s when the claim loses - already transitioned or concurrent winner', async () => {
       mockPrismaService.refund.findUnique.mockResolvedValue({ id: 'ref_1', storeId: 'store_1', status: 'COMPLETED' });
+      mockTx.refund.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.approve('store_1', 'u', 'ref_1')).rejects.toMatchObject({ code: 'SALE_ALREADY_PROCESSED' });
       await expect(service.reject('store_1', 'u', 'ref_1')).rejects.toMatchObject({ code: 'SALE_ALREADY_PROCESSED' });
@@ -153,8 +156,9 @@ describe('RefundsService', () => {
 
     it('restocks the batch, writes REFUND_IN, and marks the sale PARTIALLY_REFUNDED', async () => {
       mockPrismaService.refund.findUnique.mockResolvedValue(approvedRefund);
+      mockTx.refund.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.refund.findUnique.mockResolvedValue({ id: 'ref_1', status: 'COMPLETED', items: [] });
       mockTx.inventoryBatch.findUnique.mockResolvedValue({ id: 'b1', currentQuantity: 3 });
-      mockTx.refund.update.mockResolvedValue({ id: 'ref_1', status: 'COMPLETED', items: [] });
       mockTx.refundItem.findMany.mockResolvedValue([{ quantity: 1 }]); // 1 of 2 refunded
 
       await service.complete('store_1', 'manager_1', 'ref_1', 'req_1');
@@ -178,8 +182,9 @@ describe('RefundsService', () => {
 
     it('marks the sale REFUNDED + paymentStatus REFUNDED when every unit is refunded', async () => {
       mockPrismaService.refund.findUnique.mockResolvedValue(approvedRefund);
+      mockTx.refund.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.refund.findUnique.mockResolvedValue({ id: 'ref_1', status: 'COMPLETED', items: [] });
       mockTx.inventoryBatch.findUnique.mockResolvedValue({ id: 'b1', currentQuantity: 3 });
-      mockTx.refund.update.mockResolvedValue({ id: 'ref_1', status: 'COMPLETED', items: [] });
       mockTx.refundItem.findMany.mockResolvedValue([{ quantity: 2 }]); // all units now refunded
 
       await service.complete('store_1', 'manager_1', 'ref_1');
@@ -196,7 +201,8 @@ describe('RefundsService', () => {
         ...approvedRefund,
         items: [{ saleItemId: 'si_1', productId: 'p1', batchId: 'b1', quantity: 1, restock: false }],
       });
-      mockTx.refund.update.mockResolvedValue({ id: 'ref_1', status: 'COMPLETED', items: [] });
+      mockTx.refund.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.refund.findUnique.mockResolvedValue({ id: 'ref_1', status: 'COMPLETED', items: [] });
       mockTx.refundItem.findMany.mockResolvedValue([{ quantity: 1 }]);
 
       await service.complete('store_1', 'manager_1', 'ref_1');
@@ -207,10 +213,23 @@ describe('RefundsService', () => {
 
     it('409s REFUND_APPROVAL_REQUIRED when completing an unapproved refund', async () => {
       mockPrismaService.refund.findUnique.mockResolvedValue({ ...approvedRefund, status: 'PENDING_APPROVAL' });
+      mockTx.refund.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.complete('store_1', 'u', 'ref_1')).rejects.toMatchObject({
         code: 'REFUND_APPROVAL_REQUIRED',
       });
+    });
+
+    it('a concurrent double-complete loses the claim and restocks NOTHING - TOCTOU guard', async () => {
+      // Both requests read status=APPROVED, but the second claim returns count 0.
+      mockPrismaService.refund.findUnique.mockResolvedValue(approvedRefund);
+      mockTx.refund.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.complete('store_1', 'u', 'ref_1')).rejects.toMatchObject({
+        code: 'REFUND_APPROVAL_REQUIRED',
+      });
+      expect(mockTx.inventoryBatch.update).not.toHaveBeenCalled();
+      expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
     });
   });
 });
