@@ -1,9 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
 import { InvoicesService } from './invoices.service';
 import { PrismaService } from '@salesense/db';
 
 const mockPrismaService = {
   invoice: { findUnique: jest.fn() },
+};
+
+const mockJwtService = {
+  sign: jest.fn().mockReturnValue('share-token-mock'),
+  verify: jest.fn(),
 };
 
 const dbInvoice = {
@@ -51,11 +57,13 @@ describe('InvoicesService', () => {
       providers: [
         InvoicesService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: JwtService, useValue: mockJwtService },
       ],
     }).compile();
 
     service = module.get<InvoicesService>(InvoicesService);
     jest.clearAllMocks();
+    mockJwtService.sign.mockReturnValue('share-token-mock');
   });
 
   it('returns the full receipt payload with numbers as integers', async () => {
@@ -102,6 +110,51 @@ describe('InvoicesService', () => {
 
     await expect(service.getInvoice('store_1', 'nope')).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
+    });
+  });
+
+  describe('share token + public access (Gate 2 upgrade)', () => {
+    it('getInvoice includes a signed shareToken', async () => {
+      mockPrismaService.invoice.findUnique.mockResolvedValue(dbInvoice);
+
+      const result = await service.getInvoice('store_1', 'inv_1');
+
+      expect(result.shareToken).toBe('share-token-mock');
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        { inv: 'inv_1', typ: 'receipt' },
+        expect.objectContaining({ expiresIn: '30d' }),
+      );
+    });
+
+    it('getPublicReceipt resolves a valid token without exposing store id', async () => {
+      mockJwtService.verify.mockReturnValue({ inv: 'inv_1', typ: 'receipt' });
+      mockPrismaService.invoice.findUnique.mockResolvedValue(dbInvoice);
+
+      const result = await service.getPublicReceipt('valid-token');
+
+      expect(result.invoiceNumber).toBe('INV-2026-2027-00002');
+      expect((result as any)._storeId).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain('profitPaise');
+    });
+
+    it('getPublicReceipt rejects tampered and wrong-type tokens with a generic 404', async () => {
+      mockJwtService.verify.mockImplementation(() => { throw new Error('bad signature'); });
+      await expect(service.getPublicReceipt('tampered')).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+
+      mockJwtService.verify.mockReturnValue({ inv: 'inv_1', typ: 'refresh' }); // wrong typ
+      await expect(service.getPublicReceipt('wrong-type')).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+    });
+
+    it('buildPdf renders a real PDF document', async () => {
+      mockJwtService.verify.mockReturnValue({ inv: 'inv_1', typ: 'receipt' });
+      mockPrismaService.invoice.findUnique.mockResolvedValue(dbInvoice);
+      const receipt = await service.getPublicReceipt('valid-token');
+
+      const pdf = await service.buildPdf(receipt);
+
+      expect(Buffer.isBuffer(pdf)).toBe(true);
+      expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(pdf.length).toBeGreaterThan(500);
     });
   });
 });

@@ -45,6 +45,18 @@ sequenceDiagram
     Ctr-->>C: Formatted Response with requestId
 ```
 
+## Implementation Errata (2026-07-13)
+
+Route drift between this design and the implemented API, recorded per the pre-flight
+rule (checklist item 7):
+
+| Designed | Implemented |
+| --- | --- |
+| `/purchase-orders*` | `/purchases*` (receive: `PATCH /purchases/:id/receive`) |
+| `POST /sync/sales` | `POST /sales/sync` |
+| `GET /invoices/:id/receipt` + `/pdf` | Single `GET /invoices/:id` carries the full receipt payload; PDF lives on the public share route `GET /public/receipts/:token/pdf` (design 0009 Gate 2) |
+| `POST /simulators/*`, `/advisor/recommendations` | As designed |
+
 ## Base URL
 
 ```text

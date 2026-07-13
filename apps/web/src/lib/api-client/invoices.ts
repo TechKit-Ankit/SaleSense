@@ -13,6 +13,8 @@ export interface ReceiptItem {
 
 export interface ReceiptInvoice {
   id: string;
+  /** Stateless public-share token (30d) — powers /r/[token] and the PDF. */
+  shareToken?: string;
   invoiceNumber: string;
   financialYear: string;
   status: 'ISSUED' | 'CANCELLED';

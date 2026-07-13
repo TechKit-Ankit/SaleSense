@@ -6,7 +6,9 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { InvoicesClient, ReceiptInvoice } from "@/lib/api-client/invoices";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Printer, MessageCircle, ArrowLeft } from "lucide-react";
+import { Printer, MessageCircle, ArrowLeft, FileDown } from "lucide-react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api/v1";
 
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
 
@@ -27,6 +29,10 @@ function buildWhatsAppText(inv: ReceiptInvoice): string {
   if (inv.sale.taxPaise > 0) lines.push(`Tax: ${rupees(inv.sale.taxPaise)}`);
   lines.push(`*Total: ${rupees(inv.sale.totalPaise)}*`);
   lines.push(`Paid via: ${inv.sale.payments.map((p) => p.method).join(", ")}`);
+  // Paper-free bill: the customer opens their own copy (design 0009 Gate 2).
+  if (inv.shareToken) {
+    lines.push(`View your bill: ${window.location.origin}/r/${inv.shareToken}`);
+  }
   lines.push("Thank you for shopping with us!");
   return lines.join("\n");
 }
@@ -92,6 +98,15 @@ export default function ReceiptPage() {
           >
             <MessageCircle className="h-4 w-4 mr-1" /> Share on WhatsApp
           </Button>
+          {invoice.shareToken && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(`${API_BASE}/public/receipts/${invoice.shareToken}/pdf`, "_blank")}
+            >
+              <FileDown className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          )}
         </div>
       </div>
 

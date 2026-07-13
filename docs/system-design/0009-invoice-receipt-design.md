@@ -27,6 +27,17 @@ profit/cost leakage (verified programmatically); unknown/foreign invoice → 404
 | **Implemented now** | `modules/invoices/` (service, controller, 4-test spec) + `app.module.ts` line; web: `api-client/invoices.ts`, `/receipt/[invoiceId]` page (80mm layout, print-only CSS, GST breakup by rate, WhatsApp `wa.me` share button), POS `alert()`s replaced with toasts — success toast carries a **Print receipt** action opening the receipt page. |
 | **Changes vs the plan** | None material. Two details: the no-leak rule is enforced by a dedicated test (serialized response must not contain `profitPaise`/`unitPurchasePricePaise`); all three POS alerts (offline-save, success, network-error) became toasts, not just the two the plan named. |
 
+## Gate 2 upgrade (Wave C.2) — server PDF + public receipt link
+
+Owner-mandated completion of the paper-free bill (approved with Wave C):
+
+| Piece | Design |
+| --- | --- |
+| **Share token** | `GET /invoices/:id` (authenticated) now also returns `shareToken` — a JWT (`{ inv, typ: 'receipt' }`, 30-day expiry, signed with the existing secret). **Stateless: no schema change**; the token itself is the authorization, and it can only be minted through an authenticated call. |
+| **Public endpoints** | `GET /public/receipts/:token` (JSON) and `GET /public/receipts/:token/pdf` — `@Public()`, strict throttle (30/min), invalid/expired token → generic 404 (no validity oracle). Same no-cost/no-profit payload as the private endpoint. |
+| **PDF** | `pdfkit` (new dependency — light, no Chromium) renders the receipt server-side, streamed as `application/pdf`. `Invoice.pdfUrl` stays unused until object storage exists. |
+| **Web** | Public page `/r/[token]` (outside the dashboard, no login) renders the bill + Download PDF. The WhatsApp share text now carries the link — the customer opens their own bill. |
+
 ## Goal
 
 A cashier must be able to hand the customer a bill. Today `POST /sales` already
