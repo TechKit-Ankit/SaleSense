@@ -63,7 +63,7 @@ per the Deployment shape section; Gate 2 items remain before public production.
 | 6b | Server-side PDF (`GET /invoices/:id/pdf`) + public tokenized receipt link | Medium (feature) | **Owner-mandated, not removed** (design-0009 amendment): paper-free bills cut printing costs. WhatsApp text share ships in Gate 1; PDF + customer-openable link land here. |
 | 7 | Docs errata for route drift | Low | Implemented `/purchases` vs documented `/purchase-orders`; `/sales/sync` vs `/sync/sales`. |
 | 8 | `requestId` on guard-phase errors | Low | Guards run before the interceptor → 401/403 responses have `requestId: null`, breaking the correlation contract exactly where debugging needs it. |
-| 9 | Web test runner + E2E test stabilization | Medium | Web has zero tests; Jest E2E specs flaky per AGENTS notes. |
+| 9 | Web test runner + E2E test stabilization | Medium | Web has zero tests; Jest E2E specs flaky per AGENTS notes. **Runner decision (2026-07-12): Jest via `next/jest` + @testing-library/react — NOT Vitest.** One runner monorepo-wide (matches the 90 API tests, AGENTS.md mocking rules, testing-strategy.md); Vitest's advantages are Vite-specific and this web app is Next/webpack. Resolves ADR-0001's "Vitest/Jest" ambiguity toward Jest. |
 | 10 | Hygiene | Low | `console.log` in scanner gateway/sync worker → logger; merge duplicate `docs/testing` strategy files; `BigInt.toJSON = Number` precision policy; resolve lingering uncommitted `next.config.ts`. |
 
 ## Deployment shape (Phase B reference)
