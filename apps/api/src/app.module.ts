@@ -10,7 +10,6 @@ import { StoresModule } from "./modules/stores/stores.module";
 import { StoreUsersModule } from "./modules/store-users/store-users.module";
 import { InvitationsModule } from "./modules/invitations/invitations.module";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
-import { RequestIdInterceptor } from "./common/interceptors/request-id.interceptor";
 import { ResponseEnvelopeInterceptor } from "./common/interceptors/response-envelope.interceptor";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -35,6 +34,9 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     LoggerModule.forRoot({
       pinoHttp: {
+        // Never log credentials (ADR-0003 sensitive-data rules) — pino-http
+        // serializes request headers by default, which would include tokens.
+        redact: ["req.headers.authorization", "req.headers.cookie"],
         transport:
           process.env.NODE_ENV !== "production"
             ? { target: "pino-pretty" }
@@ -61,10 +63,8 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
   ],
   controllers: [HealthController],
   providers: [
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: RequestIdInterceptor,
-    },
+    // requestId now comes from requestIdMiddleware in main.ts (runs before
+    // guards, so auth errors carry it too) — the old interceptor is gone.
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseEnvelopeInterceptor,

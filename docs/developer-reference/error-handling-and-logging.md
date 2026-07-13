@@ -4,6 +4,39 @@
 
 Errors should be graceful for users and useful for developers. Every serious failure should be traceable through a `requestId` and structured logs.
 
+## Division of Responsibility: Pino vs Sentry
+
+We deliberately run **both**, because they solve different problems — neither replaces
+the other:
+
+| | **Pino** (`nestjs-pino`) | **Sentry** (`@sentry/nestjs`, `@sentry/nextjs`) |
+| --- | --- | --- |
+| What it is | Structured JSON **logging** of every request and event | Error **aggregation and alerting** for failures |
+| Answers | "What happened during request `req_x`?" — the forensic timeline | "Something is broken **right now** — stack trace, frequency, since when" |
+| Volume | Everything (requests, warnings, business events) | Only unexpected 5xx and critical failures — routine 4xx `BusinessException`s are *expected* behaviour and are **not** sent |
+| Who consumes it | A developer searching by `requestId`/`storeId` after the fact | Nobody watches log streams at a pilot store at 7pm — Sentry **pushes** the alert |
+| Failure mode without it | Can't reconstruct what a request did | Don't learn the app is broken until a shopkeeper phones |
+
+Rules of the pairing:
+
+1. Every Sentry event carries the same correlation fields Pino logs (`requestId`,
+   `method`, `route`) so an alert joins back to the full log timeline.
+2. Sentry is **optional at runtime** — no `SENTRY_DSN` means no-op (same graceful
+   degradation pattern as the Gemini key). Pino always runs.
+3. Neither ever receives secrets: Pino redacts `authorization`/`cookie` headers;
+   Sentry gets no request bodies and no PII (`sendDefaultPii` off).
+
+```mermaid
+flowchart LR
+    R[Request] --> P[Pino: JSON log line<br/>every request, always]
+    R --> F[GlobalExceptionFilter]
+    F -->|4xx BusinessException<br/>expected, envelope only| C[Client]
+    F -->|5xx / unexpected| S[Sentry: captureException<br/>tagged requestId/route]
+    F -->|5xx / unexpected| C
+    S --> A[Alert → developer]
+    A -->|joins on requestId| P
+```
+
 ## User Experience Rules
 
 1. Never show raw stack traces to users.

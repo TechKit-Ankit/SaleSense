@@ -7,6 +7,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
@@ -16,17 +17,19 @@ import { Server, Socket } from 'socket.io';
   namespace: '/scanner',
 })
 export class ScannerGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(ScannerGateway.name);
+
   @WebSocketServer()
   server!: Server;
 
   private connectedClients = new Map<string, string>(); // socketId -> roomId
 
   handleConnection(client: Socket) {
-    console.log(`Client connected to scanner gateway: ${client.id}`);
+    this.logger.log(`Client connected to scanner gateway: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Client disconnected from scanner gateway: ${client.id}`);
+    this.logger.log(`Client disconnected from scanner gateway: ${client.id}`);
     const roomId = this.connectedClients.get(client.id);
     if (roomId) {
       // Notify the room that a device disconnected (useful for UI)

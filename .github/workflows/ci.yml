@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version comes from the packageManager field in package.json
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @salesense/db prisma:generate
+
+      # Workspace packages must be built before the apps can typecheck
+      # against their dist outputs.
+      - name: Build shared packages
+        run: |
+          pnpm --filter @salesense/shared build
+          pnpm --filter @salesense/db build
+
+      - name: Typecheck API
+        run: pnpm --filter @salesense/api exec tsc --noEmit -p tsconfig.json
+
+      - name: Unit tests (API)
+        run: pnpm --filter @salesense/api test
+
+      - name: Typecheck web
+        run: pnpm --filter @salesense/web exec tsc --noEmit
+
+      - name: Build API
+        run: pnpm --filter @salesense/api build
+
+      - name: Build web
+        run: pnpm --filter @salesense/web build
+
+      - name: Migration status (schema drift check, no DB needed)
+        run: pnpm exec prisma validate --schema packages/db/prisma/schema.prisma

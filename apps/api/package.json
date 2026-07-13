@@ -25,6 +25,7 @@
     "@nestjs/websockets": "^11.1.27",
     "@salesense/db": "workspace:*",
     "@salesense/shared": "workspace:*",
+    "@sentry/nestjs": "^10.65.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",

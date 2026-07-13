@@ -1,9 +1,11 @@
+import "./instrument"; // Sentry — must be the first import
 import "reflect-metadata";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
+import { requestIdMiddleware } from "./common/middleware/request-id.middleware";
 
 (BigInt.prototype as any).toJSON = function () {
   return Number(this);
@@ -29,6 +31,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
+
+  // Runs before guards — so 401/403 responses carry a requestId too.
+  app.use(requestIdMiddleware);
 
   // Browser clients live on a different origin (web :3000 vs api :4000 in dev).
   // CORS_ORIGIN is a comma-separated allowlist in deployed environments.

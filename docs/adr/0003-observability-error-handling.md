@@ -2,7 +2,13 @@
 
 ## Status
 
-Proposed
+Accepted. Phase 1 (Pino, error envelope, request correlation) implemented during
+product Phases 0–4. Phase 2 (Sentry in both apps; request-ID moved to a **middleware**
+so guard-phase 401/403s finally carry `requestId`) implemented 2026-07-12 as
+production-readiness Wave A. The Pino-vs-Sentry division of responsibility is recorded
+in `developer-reference/error-handling-and-logging.md`: Pino = always-on structured
+forensic log of everything; Sentry = push alerting for unexpected 5xx only, tagged with
+the same correlation fields, optional at runtime (no `SENTRY_DSN` → no-op).
 
 ## Date
 

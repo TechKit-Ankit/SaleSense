@@ -9,6 +9,7 @@ import type { Request, Response } from "express";
 import { INTERNAL_ERROR, VALIDATION_FAILED } from "../errors/error-codes.js";
 import { BusinessException } from "../errors/business-exception.js";
 import { Logger } from "nestjs-pino";
+import { Sentry, isSentryEnabled } from "../../instrument.js";
 
 /**
  * Catches every exception thrown in the request pipeline and formats
@@ -103,6 +104,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           statusCode: httpStatus,
         },
         `${code}: ${message}`,
+      );
+    }
+
+    // Sentry receives ONLY unexpected 5xx — 4xx BusinessExceptions are
+    // expected behaviour and stay out (Pino-vs-Sentry division, see
+    // developer-reference/error-handling-and-logging.md). Tagged with the
+    // same correlation fields Pino logs, so alerts join back to the timeline.
+    if (httpStatus >= 500 && isSentryEnabled()) {
+      Sentry.captureException(
+        exception instanceof Error ? exception : new Error(String(exception)),
+        {
+          tags: { errorCode: code, method, route },
+          extra: { requestId },
+        },
       );
     }
 

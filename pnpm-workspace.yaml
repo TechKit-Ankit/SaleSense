@@ -4,10 +4,13 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false
+  # Sentry CLI only downloads a binary for source-map upload — not needed at
+  # runtime; flip to true when CI starts uploading source maps on deploy.
+  '@sentry/cli': false
   '@swc/core': true
   bcrypt: true
   prisma: true
   sharp: true
-  unrs-resolver: set this to true or false
+  unrs-resolver: false
 minimumReleaseAgeExclude:
   - lucide-react@1.21.0

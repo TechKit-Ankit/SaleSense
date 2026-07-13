@@ -169,6 +169,13 @@ All money values are integer paise:
 
 Never send or accept floating-point money values like `31.5`.
 
+**BigInt JSON serialization policy (Wave A):** internally money is `BigInt` paise; at
+the JSON boundary values are serialized as plain numbers (a global
+`BigInt.prototype.toJSON = Number` in `main.ts` plus explicit `Number()` casts in
+services). This is lossless up to 2^53 paise (~₹90 trillion) — far beyond retail
+magnitudes. If amounts ever approach that bound, the policy switches to string
+serialization as a versioned (v2) breaking change; do not mix the two.
+
 ## Quantity Contract
 
 MVP uses integer quantities.

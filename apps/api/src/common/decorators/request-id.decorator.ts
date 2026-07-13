@@ -2,8 +2,8 @@ import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import type { Request } from "express";
 
 /**
- * Extracts the correlation `requestId` that {@link RequestIdInterceptor}
- * attaches to every incoming request.
+ * Extracts the correlation `requestId` that `requestIdMiddleware`
+ * attaches to every incoming request (see main.ts).
  *
  * Returns an empty string if the interceptor has not run (e.g. in isolated
  * unit tests), so callers can safely persist it as `createdRequestId`.
