@@ -46,13 +46,14 @@ We will build the project in this order:
 | `system-design/0006-promotion-simulators-design.md` | P4.2 discount & BOGO profitability simulators: math, contracts, scenarios — implemented |
 | `system-design/0007-rule-based-advisor-design.md` | P4.3 rule-based advisor: 6 deterministic rules, severities, dashboard card — implemented |
 | `system-design/0008-ai-advisor-deepening-design.md` | P4.4 grounded AI chat: advisor findings in LLM context, multi-turn history, forecast deferral — implemented (Phase 4 complete) |
+| `system-design/0009-invoice-receipt-design.md` | Gate 1 item 7: invoice read endpoint, thermal print view, WhatsApp share, POS toast — implemented |
 | `database/0001-observability-data-requirements.md` | Database requirements for audit, sync, and request traceability |
 | `database/0002-database-model-v1.md` | Draft relational database model for review |
 | `database/0003-prisma-schema-draft.md` | Prisma schema validation notes and migration caveats |
 | `api/0001-api-design-v1.md` | First API resource design and endpoint map |
 | `api/0002-api-contracts.md` | API-wide contracts for errors, idempotency, request IDs, and data rules |
 | `developer-reference/development-setup.md` | Local workspace setup, commands, and scaffold URLs |
-| `testing/0002-production-readiness-checklist.md` | Full-audit findings, Gate 1 (fix now) / Gate 2 (before go-live), deployment shape — **draft for review** |
+| `testing/0002-production-readiness-checklist.md` | Full-audit findings, Gate 1 (complete) / Gate 2 (before go-live), deployment shape |
 
 ## Decision Rule
 

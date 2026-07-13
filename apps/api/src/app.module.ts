@@ -25,6 +25,7 @@ import { ScannerModule } from './modules/scanner/scanner.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SimulatorsModule } from './modules/simulators/simulators.module';
 import { AdvisorModule } from './modules/advisor/advisor.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { AdvisorModule } from './modules/advisor/advisor.module';
     AnalyticsModule,
     SimulatorsModule,
     AdvisorModule,
+    InvoicesModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -44,7 +44,11 @@ end-to-end (sale → printed/printable bill).
 | 4 | Migrations baseline | ✅ Done | `0_init` (28 tables) generated + `migrate resolve --applied`; `migrate status`: up to date. New scripts: `db:migrate`, `db:deploy`, `db:migrate-status` |
 | 5 | Rate limiting | ✅ Done | Live: login 429 on 6th attempt/min; chat capped 10/min; global 100/min (`@nestjs/throttler`) |
 | 6 | Swagger gating | ✅ Done | Served in dev; skipped when `NODE_ENV=production` |
-| 7 | Printable receipt | ⏳ In design | Design doc 0009 pending approval |
+| 7 | Printable receipt + WhatsApp share | ✅ Done | Live E2E: sale → `GET /invoices/:id` full payload, no profit/cost leakage, foreign id → 404; `/receipt/[invoiceId]` print view + `wa.me` share; POS toast with Print action. Owner amendment honored: server PDF + public tokenized link stay on Gate 2 (below). |
+
+**Gate 1 exit achieved (2026-07-12).** All seven items done and live-verified;
+API suite 90/90; web typecheck + production build clean. Pilot deployment may proceed
+per the Deployment shape section; Gate 2 items remain before public production.
 
 ## Gate 2 — Before production go-live (pilot can start once Gate 1 ships)
 
@@ -56,6 +60,7 @@ end-to-end (sale → printed/printable bill).
 | 4 | CI pipeline (GitHub Actions) | High | Typecheck + tests + build on push; `prisma migrate deploy` on release. |
 | 5 | Sentry both apps | Medium | ADR-0003 Phase 2, already designed. |
 | 6 | Customers / devices / payments / audit endpoints | Medium (features) | Designed in `api 0001`, unimplemented. |
+| 6b | Server-side PDF (`GET /invoices/:id/pdf`) + public tokenized receipt link | Medium (feature) | **Owner-mandated, not removed** (design-0009 amendment): paper-free bills cut printing costs. WhatsApp text share ships in Gate 1; PDF + customer-openable link land here. |
 | 7 | Docs errata for route drift | Low | Implemented `/purchases` vs documented `/purchase-orders`; `/sales/sync` vs `/sync/sales`. |
 | 8 | `requestId` on guard-phase errors | Low | Guards run before the interceptor → 401/403 responses have `requestId: null`, breaking the correlation contract exactly where debugging needs it. |
 | 9 | Web test runner + E2E test stabilization | Medium | Web has zero tests; Jest E2E specs flaky per AGENTS notes. |

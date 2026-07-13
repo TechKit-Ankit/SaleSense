@@ -10,6 +10,7 @@ import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { formatPaise } from '@/lib/utils/formatters';
 import QRCode from 'react-qr-code';
+import { toast } from 'sonner';
 
 interface CartItem {
   id: string; // product id
@@ -144,18 +145,28 @@ export default function PosPage() {
 
     if (!isOnline) {
       await syncQueue.addPendingSale(activeStore.id, idempotencyKey, payload);
-      alert('You are offline. Sale saved locally and will sync automatically!');
+      toast.info('You are offline. Sale saved locally and will sync automatically.');
       return;
     }
 
     try {
       const sale = await SalesClient.createSale(activeStore.id, payload);
-      alert('Sale completed! Invoice: ' + (sale?.invoice?.invoiceNumber ?? 'N/A'));
+      if (sale?.invoice?.id) {
+        toast.success(`Sale complete — ${sale.invoice.invoiceNumber}`, {
+          duration: 8000,
+          action: {
+            label: 'Print receipt',
+            onClick: () => window.open(`/receipt/${sale.invoice.id}`, '_blank'),
+          },
+        });
+      } else {
+        toast.success('Sale completed!');
+      }
     } catch (e: any) {
       console.error(e);
       // Fallback to offline queue if network error during request
       await syncQueue.addPendingSale(activeStore.id, idempotencyKey, payload);
-      alert('Network error. Sale queued for sync.');
+      toast.warning('Network error. Sale queued for sync.');
     }
   };
 
