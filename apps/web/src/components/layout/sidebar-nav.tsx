@@ -12,7 +12,8 @@ import {
   BarChart3, 
   Settings,
   ScanBarcode,
-  BadgePercent
+  BadgePercent,
+  History
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -57,6 +58,11 @@ const items = [
     title: "Customers",
     href: "/customers",
     icon: Users,
+  },
+  {
+    title: "Sales",
+    href: "/sales",
+    icon: History,
   },
   {
     title: "Analytics",

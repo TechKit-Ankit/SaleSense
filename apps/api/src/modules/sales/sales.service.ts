@@ -18,6 +18,7 @@ import {
   ERROR_CODE_HTTP_STATUS,
   STOCK_RECONCILIATION_REQUIRED,
   INTERNAL_ERROR,
+  RESOURCE_NOT_FOUND,
 } from '../../common/errors/error-codes.js';
 
 /**
@@ -258,6 +259,61 @@ export class SalesService {
       }
       throw e;
     }
+  }
+
+  /** Latest sales for the history page (design doc 0011). */
+  async listSales(storeId: string) {
+    return this.prisma.sale.findMany({
+      where: { storeId },
+      include: {
+        invoice: { select: { id: true, invoiceNumber: true } },
+        refunds: { select: { id: true, status: true, refundAmountPaise: true } },
+        _count: { select: { items: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100, // MVP limit, consistent with movements/reconciliation
+    });
+  }
+
+  /**
+   * Sale detail with per-item `refundableQuantity` precomputed: sold minus
+   * every refund quantity that is not REJECTED/CANCELLED — pending requests
+   * reserve refundability (design doc 0011 rule 1).
+   */
+  async getSale(storeId: string, saleId: string) {
+    const sale = await this.prisma.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        items: true,
+        payments: true,
+        invoice: { select: { id: true, invoiceNumber: true } },
+        refunds: { include: { items: true }, orderBy: { createdAt: 'desc' } },
+      },
+    });
+
+    if (!sale || sale.storeId !== storeId) {
+      throw new BusinessException(
+        RESOURCE_NOT_FOUND,
+        'Sale was not found.',
+        ERROR_CODE_HTTP_STATUS[RESOURCE_NOT_FOUND] ?? 404,
+      );
+    }
+
+    const reserved = new Map<string, number>();
+    for (const refund of sale.refunds) {
+      if (refund.status === 'REJECTED' || refund.status === 'CANCELLED') continue;
+      for (const ri of refund.items) {
+        reserved.set(ri.saleItemId, (reserved.get(ri.saleItemId) ?? 0) + ri.quantity);
+      }
+    }
+
+    return {
+      ...sale,
+      items: sale.items.map((item) => ({
+        ...item,
+        refundableQuantity: item.quantity - (reserved.get(item.id) ?? 0),
+      })),
+    };
   }
 
   async syncSales(storeId: string, cashierUserId: string, dtos: CreateSaleDto[], requestId: string) {

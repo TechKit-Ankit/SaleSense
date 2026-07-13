@@ -25,6 +25,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SimulatorsModule } from './modules/simulators/simulators.module';
 import { AdvisorModule } from './modules/advisor/advisor.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { RefundsModule } from './modules/refunds/refunds.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
     SimulatorsModule,
     AdvisorModule,
     InvoicesModule,
+    RefundsModule,
   ],
   controllers: [HealthController],
   providers: [

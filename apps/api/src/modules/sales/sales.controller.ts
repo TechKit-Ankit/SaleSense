@@ -1,10 +1,12 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Param } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto, SyncSalesDto } from './dto/create-sale.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { StoreAccessGuard } from '../../common/guards/store-access.guard';
 import { StoreId } from '../../common/decorators/store-id.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { StoreUserRole } from '@salesense/db';
 import { RequestId } from '../../common/decorators/request-id.decorator';
 
 @UseGuards(JwtAuthGuard, StoreAccessGuard)
@@ -20,6 +22,17 @@ export class SalesController {
     @RequestId() requestId: string,
   ) {
     return this.salesService.createSale(storeId, userId, createSaleDto, requestId);
+  }
+
+  @Roles(StoreUserRole.OWNER, StoreUserRole.MANAGER)
+  @Get()
+  listSales(@StoreId() storeId: string) {
+    return this.salesService.listSales(storeId);
+  }
+
+  @Get(':saleId')
+  getSale(@StoreId() storeId: string, @Param('saleId') saleId: string) {
+    return this.salesService.getSale(storeId, saleId);
   }
 
   @Post('sync')

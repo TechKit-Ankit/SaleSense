@@ -50,10 +50,57 @@ export interface SyncSalesResult {
   failed: FailedSaleResult[];
 }
 
+export interface SaleListEntry {
+  id: string;
+  createdAt: string;
+  status: string;
+  paymentStatus: string;
+  totalPaise: number;
+  saleSource: string;
+  invoice?: { id: string; invoiceNumber: string } | null;
+  refunds: { id: string; status: string; refundAmountPaise: number }[];
+  _count: { items: number };
+}
+
+export interface SaleDetailItem {
+  id: string;
+  productNameSnapshot: string;
+  quantity: number;
+  unitSellingPricePaise: number;
+  lineTotalPaise: number;
+  refundableQuantity: number;
+  batchId: string | null;
+}
+
+export interface SaleDetail {
+  id: string;
+  createdAt: string;
+  status: string;
+  paymentStatus: string;
+  subtotalPaise: number;
+  discountPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  invoice?: { id: string; invoiceNumber: string } | null;
+  items: SaleDetailItem[];
+  payments: { method: string; amountPaise: number }[];
+  refunds: {
+    id: string;
+    status: string;
+    reason: string;
+    refundAmountPaise: number;
+    createdAt: string;
+    items: { saleItemId: string; quantity: number }[];
+  }[];
+}
+
 export const SalesClient = {
   // Note: `api.post` already unwraps the response envelope and returns `data`.
   createSale: (storeId: string, payload: CreateSalePayload) =>
     api.post(`/sales`, payload, { headers: { 'x-store-id': storeId } }),
+
+  listSales: (): Promise<SaleListEntry[]> => api.get('/sales'),
+  getSale: (saleId: string): Promise<SaleDetail> => api.get(`/sales/${saleId}`),
 
   syncSales: (storeId: string, sales: CreateSalePayload[]): Promise<SyncSalesResult> =>
     api.post(`/sales/sync`, { sales }, { headers: { 'x-store-id': storeId } }),
