@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck web
         run: pnpm --filter @salesense/web exec tsc --noEmit
 
+      - name: Unit tests (web)
+        run: pnpm --filter @salesense/web test
+
       - name: Build API
         run: pnpm --filter @salesense/api build
 

@@ -7,53 +7,11 @@ import { InvoicesClient, ReceiptInvoice } from "@/lib/api-client/invoices";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Printer, MessageCircle, ArrowLeft, FileDown } from "lucide-react";
+import { waTarget, buildWhatsAppText, gstBreakup } from "@/lib/receipt-utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api/v1";
 
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
-
-/** wa.me needs country code + digits only; bare 10-digit numbers assume India. */
-function waTarget(phone: string | null | undefined): string {
-  const digits = (phone ?? '').replace(/\D/g, '');
-  if (!digits) return '';
-  return digits.length === 10 ? `91${digits}` : digits;
-}
-
-/** Plain-text receipt for the WhatsApp deep link (paper-free bill). */
-function buildWhatsAppText(inv: ReceiptInvoice): string {
-  const lines: string[] = [];
-  lines.push(`*${inv.store.nameSnapshot}*`);
-  if (inv.store.addressSnapshot) lines.push(inv.store.addressSnapshot);
-  if (inv.store.gstNumberSnapshot) lines.push(`GSTIN: ${inv.store.gstNumberSnapshot}`);
-  lines.push(`Invoice: ${inv.invoiceNumber}`);
-  lines.push(`Date: ${new Date(inv.issuedAt).toLocaleString("en-IN")}`);
-  lines.push("------------------------");
-  for (const item of inv.sale.items) {
-    lines.push(`${item.quantity} x ${item.productNameSnapshot} — ${rupees(item.lineTotalPaise)}`);
-  }
-  lines.push("------------------------");
-  if (inv.sale.discountPaise > 0) lines.push(`Discount: -${rupees(inv.sale.discountPaise)}`);
-  if (inv.sale.taxPaise > 0) lines.push(`Tax: ${rupees(inv.sale.taxPaise)}`);
-  lines.push(`*Total: ${rupees(inv.sale.totalPaise)}*`);
-  lines.push(`Paid via: ${inv.sale.payments.map((p) => p.method).join(", ")}`);
-  // Paper-free bill: the customer opens their own copy (design 0009 Gate 2).
-  if (inv.shareToken) {
-    lines.push(`View your bill: ${window.location.origin}/r/${inv.shareToken}`);
-  }
-  lines.push("Thank you for shopping with us!");
-  return lines.join("\n");
-}
-
-/** Groups tax by rate for the GST breakup block (test-strategy scenario 7). */
-function gstBreakup(inv: ReceiptInvoice): { rateBps: number; taxPaise: number }[] {
-  const byRate = new Map<number, number>();
-  for (const item of inv.sale.items) {
-    if (item.taxPaise > 0) {
-      byRate.set(item.taxRateBps, (byRate.get(item.taxRateBps) ?? 0) + item.taxPaise);
-    }
-  }
-  return [...byRate.entries()].map(([rateBps, taxPaise]) => ({ rateBps, taxPaise }));
-}
 
 export default function ReceiptPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
@@ -104,7 +62,7 @@ export default function ReceiptPage() {
               // tap, design 0012); otherwise fall back to the contact picker.
               const target = waTarget(invoice.customer?.phone);
               window.open(
-                `https://wa.me/${target}?text=${encodeURIComponent(buildWhatsAppText(invoice))}`,
+                `https://wa.me/${target}?text=${encodeURIComponent(buildWhatsAppText(invoice, window.location.origin))}`,
                 "_blank",
               );
             }}

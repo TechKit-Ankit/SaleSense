@@ -56,9 +56,25 @@ Our backend `jest.config.js` leverages `moduleNameMapper` to resolve explicit `.
 ## Continuous Integration
 Tests are automatically mapped via **Turborepo** (`turbo.json`). Calling `pnpm test` from the root intelligently caches successful test runs. If code hasn't changed in a package, the test phase for that package resolves instantly from the turbo cache.
 
-## Frontend (`apps/web`)
+## Frontend (`apps/web`) — implemented (Wave D, 2026-07-13)
 
 Runner decision (2026-07-12, production checklist item 9): **Jest via `next/jest`
 + @testing-library/react** — one runner monorepo-wide; Vitest rejected because its
-advantages are Vite-specific and this app is Next/webpack. Browser E2E: Playwright
-against a deployed preview (per ADR-0001).
+advantages are Vite-specific and this app is Next/webpack.
+
+- `pnpm --filter @salesense/web test` — 20 unit tests over the riskiest client logic:
+  the offline **sync-worker** (de-queue by clientMutationId, reconciliation toast,
+  failed-stays-queued, offline guard), the **apiClient** contract (envelope unwrap,
+  params serialization, typed ApiError, and the 401 → refresh → **rotated-token
+  persistence** → retry lockstep from design-0010), **receipt-utils** (wa.me
+  normalization, WhatsApp bill text incl. the /r/ link, GST breakup), and formatters.
+- Receipt helpers were extracted from the page into `src/lib/receipt-utils.ts` to be
+  testable — pages stay thin per the folder-structure rules.
+- CI runs the web suite after the web typecheck.
+
+Browser E2E: **Playwright** (`pnpm --filter @salesense/web test:e2e`) with a smoke
+spec (login → dashboard → sales history; tampered public receipt link) that is
+**gated on `E2E_BASE_URL`/`E2E_EMAIL`/`E2E_PASSWORD`** — it runs against a live
+deployment or preview only and self-skips otherwise, so CI stays green until a
+deployed target exists. The flaky real-DB Jest E2E specs in `apps/api/test` are
+superseded by this path (unit-first stays the house rule).
