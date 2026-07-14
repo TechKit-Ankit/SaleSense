@@ -24,6 +24,7 @@ const dbInvoice = {
   gstNumberSnapshot: null,
   sale: {
     id: 'sale_1',
+    customer: { name: 'Asha', phone: '9812345678' },
     createdAt: new Date('2026-07-12T10:30:00Z'),
     paymentStatus: 'PAID',
     subtotalPaise: 10000n,
@@ -135,6 +136,17 @@ describe('InvoicesService', () => {
       expect(result.invoiceNumber).toBe('INV-2026-2027-00002');
       expect((result as any)._storeId).toBeUndefined();
       expect(JSON.stringify(result)).not.toContain('profitPaise');
+    });
+
+    it('private payload carries the customer; the PUBLIC payload never does (design 0012)', async () => {
+      mockPrismaService.invoice.findUnique.mockResolvedValue(dbInvoice);
+      const priv = await service.getInvoice('store_1', 'inv_1');
+      expect(priv.customer).toEqual({ name: 'Asha', phone: '9812345678' });
+
+      mockJwtService.verify.mockReturnValue({ inv: 'inv_1', typ: 'receipt' });
+      const pub = await service.getPublicReceipt('valid-token');
+      expect((pub as any).customer).toBeUndefined();
+      expect(JSON.stringify(pub)).not.toContain('9812345678');
     });
 
     it('getPublicReceipt rejects tampered and wrong-type tokens with a generic 404', async () => {

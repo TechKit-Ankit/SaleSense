@@ -49,7 +49,7 @@ export class InvoicesService {
     }
     const receipt = await this.loadReceipt(payload.inv);
     if (!receipt) this.notFound();
-    const { _storeId, ...publicPayload } = receipt;
+    const { _storeId, customer, ...publicPayload } = receipt;
     return publicPayload;
   }
 
@@ -112,6 +112,7 @@ export class InvoicesService {
           include: {
             items: true,
             payments: true,
+            customer: { select: { name: true, phone: true } },
           },
         },
       },
@@ -126,6 +127,11 @@ export class InvoicesService {
       financialYear: invoice.financialYear,
       status: invoice.status,
       issuedAt: invoice.issuedAt,
+      // Buyer identity for the wa.me direct chat — stripped from the PUBLIC
+      // payload (the /r/ link may be forwarded; viewers must not see it).
+      customer: invoice.sale.customer
+        ? { name: invoice.sale.customer.name, phone: invoice.sale.customer.phone }
+        : null,
       store: {
         nameSnapshot: invoice.storeNameSnapshot,
         addressSnapshot: invoice.storeAddressSnapshot,

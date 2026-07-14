@@ -49,6 +49,7 @@ We will build the project in this order:
 | `system-design/0009-invoice-receipt-design.md` | Gate 1 item 7: invoice read endpoint, thermal print view, WhatsApp share, POS toast — implemented |
 | `system-design/0010-security-hardening-design.md` | Wave B: refresh-token rotation/family theft detection, real logout, scanner room hardening — implemented |
 | `system-design/0011-refunds-design.md` | Wave C.1: refunds approval workflow with transactional restock + sales history endpoints/pages — implemented |
+| `system-design/0012-customers-design.md` | Wave C.3: customer capture at POS, wa.me direct-chat bill (free tier), Cloud API deferral — implemented |
 | `database/0001-observability-data-requirements.md` | Database requirements for audit, sync, and request traceability |
 | `database/0002-database-model-v1.md` | Draft relational database model for review |
 | `database/0003-prisma-schema-draft.md` | Prisma schema validation notes and migration caveats |

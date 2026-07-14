@@ -54,6 +54,19 @@ export class SalesService {
         const store = await tx.store.findUnique({ where: { id: storeId } });
         if (!store) throw new NotFoundException('Store not found');
 
+        // Customer capture (design 0012): find-or-create by phone so the
+        // WhatsApp receipt opens the customer's chat directly. Explicit
+        // customerId wins; offline payloads carry the phone through sync.
+        let customerId = dto.customerId ?? null;
+        if (!customerId && dto.customerPhone) {
+          const customer = await tx.customer.upsert({
+            where: { storeId_phone: { storeId, phone: dto.customerPhone } },
+            create: { storeId, phone: dto.customerPhone, name: dto.customerName ?? null },
+            update: dto.customerName ? { name: dto.customerName } : {},
+          });
+          customerId = customer.id;
+        }
+
         let subtotalPaise = 0n;
         let discountPaise = 0n;
         let taxPaise = 0n;
@@ -168,7 +181,7 @@ export class SalesService {
         const sale = await tx.sale.create({
           data: {
             storeId,
-            customerId: dto.customerId ?? null,
+            customerId,
             cashierUserId,
             deviceId: dto.deviceId ?? null,
             idempotencyKey: dto.idempotencyKey,

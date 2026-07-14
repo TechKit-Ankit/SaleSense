@@ -21,6 +21,7 @@ const mockPrismaService = {
 
 const mockTx = {
   store: { findUnique: jest.fn() },
+  customer: { upsert: jest.fn() },
   product: { findUnique: jest.fn() },
   inventoryBatch: { findUnique: jest.fn(), update: jest.fn() },
   invoiceSequence: { upsert: jest.fn() },
@@ -143,6 +144,54 @@ describe('SalesService', () => {
         where: { id: 'batch_1' },
         data: { currentQuantity: -4 }, // 1 - 5, overselling allowed
       });
+    });
+
+    it('captures the customer by phone inside the sale transaction (design 0012)', async () => {
+      mockPrismaService.sale.findUnique.mockResolvedValue(null);
+      mockTx.store.findUnique.mockResolvedValue({ id: 'store_1', name: 'Store 1', allowNegativeStock: false });
+      mockTx.product.findUnique.mockResolvedValue({ id: 'prod_1', taxRateBps: 0, name: 'Prod' });
+      mockTx.inventoryBatch.findUnique.mockResolvedValue({ id: 'batch_1', currentQuantity: 10, purchasePricePaise: 50n });
+      mockTx.invoiceSequence.upsert.mockResolvedValue({ prefix: 'INV', nextNumber: 1 });
+      mockTx.customer.upsert.mockResolvedValue({ id: 'cust_1' });
+      mockTx.sale.create.mockResolvedValue({ id: 'sale_c', invoice: { id: 'inv_c' }, items: [] });
+
+      const dto = {
+        idempotencyKey: 'idem_cust',
+        saleSource: SaleSource.ONLINE,
+        customerPhone: '9812345678',
+        customerName: 'Asha',
+        items: [{ productId: 'prod_1', batchId: 'batch_1', quantity: 1, unitSellingPricePaise: 100 }],
+        payments: [{ method: PaymentMethod.CASH, amountPaise: 100 }],
+      };
+
+      await service.createSale('store_1', 'user_1', dto, 'req_1');
+
+      expect(mockTx.customer.upsert).toHaveBeenCalledWith({
+        where: { storeId_phone: { storeId: 'store_1', phone: '9812345678' } },
+        create: { storeId: 'store_1', phone: '9812345678', name: 'Asha' },
+        update: { name: 'Asha' },
+      });
+      expect(mockTx.sale.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ customerId: 'cust_1' }) }),
+      );
+    });
+
+    it('touches no customer records when no phone is given', async () => {
+      mockPrismaService.sale.findUnique.mockResolvedValue(null);
+      mockTx.store.findUnique.mockResolvedValue({ id: 'store_1', name: 'Store 1', allowNegativeStock: false });
+      mockTx.product.findUnique.mockResolvedValue({ id: 'prod_1', taxRateBps: 0, name: 'Prod' });
+      mockTx.inventoryBatch.findUnique.mockResolvedValue({ id: 'batch_1', currentQuantity: 10, purchasePricePaise: 50n });
+      mockTx.invoiceSequence.upsert.mockResolvedValue({ prefix: 'INV', nextNumber: 1 });
+      mockTx.sale.create.mockResolvedValue({ id: 'sale_n', invoice: null, items: [] });
+
+      await service.createSale('store_1', 'user_1', {
+        idempotencyKey: 'idem_nocust',
+        saleSource: SaleSource.ONLINE,
+        items: [{ productId: 'prod_1', batchId: 'batch_1', quantity: 1, unitSellingPricePaise: 100 }],
+        payments: [{ method: PaymentMethod.CASH, amountPaise: 100 }],
+      }, 'req_1');
+
+      expect(mockTx.customer.upsert).not.toHaveBeenCalled();
     });
 
     it('flags the stock movement for reconciliation when offline sync drives stock negative', async () => {

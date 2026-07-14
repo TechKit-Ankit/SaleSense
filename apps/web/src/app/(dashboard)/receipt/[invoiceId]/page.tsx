@@ -12,6 +12,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/
 
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
 
+/** wa.me needs country code + digits only; bare 10-digit numbers assume India. */
+function waTarget(phone: string | null | undefined): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.length === 10 ? `91${digits}` : digits;
+}
+
 /** Plain-text receipt for the WhatsApp deep link (paper-free bill). */
 function buildWhatsAppText(inv: ReceiptInvoice): string {
   const lines: string[] = [];
@@ -92,11 +99,18 @@ export default function ReceiptPage() {
             size="sm"
             variant="outline"
             className="text-green-700 border-green-300"
-            onClick={() =>
-              window.open(`https://wa.me/?text=${encodeURIComponent(buildWhatsAppText(invoice))}`, "_blank")
-            }
+            onClick={() => {
+              // Customer captured at POS → open THEIR chat directly (one Send
+              // tap, design 0012); otherwise fall back to the contact picker.
+              const target = waTarget(invoice.customer?.phone);
+              window.open(
+                `https://wa.me/${target}?text=${encodeURIComponent(buildWhatsAppText(invoice))}`,
+                "_blank",
+              );
+            }}
           >
-            <MessageCircle className="h-4 w-4 mr-1" /> Share on WhatsApp
+            <MessageCircle className="h-4 w-4 mr-1" />
+            {invoice.customer?.phone ? `WhatsApp ${invoice.customer.name ?? invoice.customer.phone}` : "Share on WhatsApp"}
           </Button>
           {invoice.shareToken && (
             <Button

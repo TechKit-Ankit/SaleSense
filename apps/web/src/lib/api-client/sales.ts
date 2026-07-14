@@ -15,6 +15,9 @@ export interface SalePaymentPayload {
 
 export interface CreateSalePayload {
   customerId?: string;
+  /** Customer capture at the counter (design 0012) — rides through offline sync. */
+  customerPhone?: string;
+  customerName?: string;
   deviceId?: string;
   idempotencyKey: string;
   clientSaleId: string;

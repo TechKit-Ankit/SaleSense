@@ -31,6 +31,9 @@ export default function PosPage() {
   const [scannerConnected, setScannerConnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  // Customer capture (design 0012) — powers the direct WhatsApp bill.
+  const [customerPhone, setCustomerPhone] = useState('');
+
   // Sync state
   const [isOnline, setIsOnline] = useState(true);
 
@@ -133,9 +136,11 @@ export default function PosPage() {
     const clientSaleId = uuidv4();
     const idempotencyKey = uuidv4();
 
+    const cleanPhone = customerPhone.replace(/\D/g, '');
     const payload: CreateSalePayload = {
       idempotencyKey,
       clientSaleId,
+      ...(cleanPhone.length >= 8 ? { customerPhone: cleanPhone } : {}),
       saleSource: isOnline ? 'ONLINE' : 'OFFLINE_SYNC',
       items: cart.map(c => ({
         productId: c.id,
@@ -149,6 +154,7 @@ export default function PosPage() {
     };
 
     setCart([]); // Optimistically clear cart
+    setCustomerPhone('');
 
     if (!isOnline) {
       await syncQueue.addPendingSale(activeStore.id, idempotencyKey, payload);
@@ -217,6 +223,13 @@ export default function PosPage() {
             <span>Total</span>
             <span>{formatPaise(subtotalPaise)}</span>
           </div>
+          <input
+            type="tel"
+            value={customerPhone}
+            onChange={e => setCustomerPhone(e.target.value)}
+            placeholder="Customer WhatsApp number (optional — paper-free bill)"
+            className="w-full mb-3 px-3 py-2 border rounded text-sm"
+          />
           <div className="grid grid-cols-3 gap-2">
             <button onClick={() => completeSale('CASH')} disabled={cart.length === 0} className="bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:opacity-50">
               CASH

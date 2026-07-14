@@ -15,6 +15,8 @@ export interface ReceiptInvoice {
   id: string;
   /** Stateless public-share token (30d) — powers /r/[token] and the PDF. */
   shareToken?: string;
+  /** Buyer identity (private payload only) — powers the wa.me direct chat. */
+  customer?: { name: string | null; phone: string | null } | null;
   invoiceNumber: string;
   financialYear: string;
   status: 'ISSUED' | 'CANCELLED';
