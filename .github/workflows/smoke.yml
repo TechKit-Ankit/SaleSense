@@ -1,0 +1,33 @@
+name: Smoke (post-deploy)
+
+# Manually triggered from the Actions tab AFTER a deploy. Runs the armed
+# Playwright smoke against the live URL (design 0013). Self-skips if the
+# E2E_* secrets are unset, so it never blocks anything.
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: corepack pnpm --filter @salesense/web exec playwright install --with-deps chromium
+
+      - name: Playwright smoke vs live deployment
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: corepack pnpm --filter @salesense/web test:e2e

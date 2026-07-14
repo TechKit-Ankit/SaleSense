@@ -2,7 +2,16 @@
 
 ## Status
 
-Draft for review — **no implementation until approved** (AGENTS.md pre-flight rule 3).
+Artifacts implemented (2026-07-14); **live deployment pending owner actions** (👤 steps
+below — creating the Neon prod branch, Railway/Vercel projects, pasting secrets).
+In-repo now: `apps/api/Dockerfile`, `.dockerignore`, `.github/workflows/smoke.yml`,
+`developer-reference/deployment-runbook.md`. CI/CD decision below is final.
+
+Verification note: every Dockerfile build step was run **natively** and passes
+(`prisma:generate`, shared→db→api builds, `dist/src/main.js` present). The `docker build`
+itself was **not** run locally — the Docker Desktop engine did not come up in-session —
+so the container wrapper is first exercised on Railway's build (or locally once Docker
+Desktop is running). Low risk: each `RUN` mirrors a command already green in CI.
 Several steps require **owner-performed actions** (creating accounts, connecting the
 GitHub repo, pasting secrets) — marked 👤 below; I cannot and should not do those.
 

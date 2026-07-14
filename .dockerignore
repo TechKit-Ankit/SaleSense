@@ -1,0 +1,21 @@
+# Installed fresh inside the image
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt in the image)
+**/dist
+apps/web/.next
+**/*.tsbuildinfo
+coverage
+
+# VCS / local / secrets
+.git
+.github
+.env
+.env.*
+!.env.example
+*.log
+tmp
+.turbo
+.vscode
+.idea

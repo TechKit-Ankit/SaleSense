@@ -57,6 +57,7 @@ We will build the project in this order:
 | `api/0001-api-design-v1.md` | First API resource design and endpoint map |
 | `api/0002-api-contracts.md` | API-wide contracts for errors, idempotency, request IDs, and data rules |
 | `developer-reference/development-setup.md` | Local workspace setup, commands, and scaffold URLs |
+| `developer-reference/deployment-runbook.md` | Step-by-step pilot go-live: Neon prod branch, Railway, Vercel, secrets, smoke, UAT, rollback |
 | `testing/0002-production-readiness-checklist.md` | Full-audit findings, Gate 1 (complete) / Gate 2 (before go-live), deployment shape |
 
 ## Decision Rule
