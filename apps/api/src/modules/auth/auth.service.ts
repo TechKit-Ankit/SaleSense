@@ -202,8 +202,10 @@ export class AuthService {
       throw BusinessException.notFound(ERROR_CODES.RESOURCE_NOT_FOUND, 'User not found');
     }
 
-    const { passwordHash: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    // Expose the relation as `storeMemberships` (the API/0001 contract term
+    // the web reads) rather than the raw Prisma relation name `storeUsers`.
+    const { passwordHash: _, storeUsers, ...userWithoutPassword } = user;
+    return { ...userWithoutPassword, storeMemberships: storeUsers };
   }
 
   private generateAccessToken(userId: string, email: string | null) {

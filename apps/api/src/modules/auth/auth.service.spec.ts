@@ -154,4 +154,28 @@ describe('AuthService', () => {
       expect(mockPrismaService.refreshSession.updateMany).not.toHaveBeenCalled();
     });
   });
+
+  describe('getProfile', () => {
+    // Regression: /auth/me must expose `storeMemberships` (the web reads that);
+    // returning the raw Prisma relation `storeUsers` left the dashboard with no
+    // active store — found by running the app in the browser.
+    it('exposes memberships as storeMemberships, not storeUsers, and hides the hash', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        name: 'Asha',
+        email: 'a@b.c',
+        passwordHash: 'secret-hash',
+        storeUsers: [
+          { storeId: 's1', role: 'OWNER', status: 'ACTIVE', store: { id: 's1', name: 'Store' } },
+        ],
+      });
+
+      const result: any = await service.getProfile('u1');
+
+      expect(result.storeMemberships).toHaveLength(1);
+      expect(result.storeMemberships[0].store.name).toBe('Store');
+      expect(result.storeUsers).toBeUndefined();
+      expect(result.passwordHash).toBeUndefined();
+    });
+  });
 });

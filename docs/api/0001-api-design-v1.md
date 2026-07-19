@@ -54,6 +54,7 @@ rule (checklist item 7):
 | --- | --- |
 | `/purchase-orders*` | `/purchases*` (receive: `PATCH /purchases/:id/receive`) |
 | `POST /sync/sales` | `POST /sales/sync` |
+| `GET /auth/me` "store memberships" | field is `storeMemberships` (mapped from the Prisma `storeUsers` relation; the web reads this) |
 | `GET /invoices/:id/receipt` + `/pdf` | Single `GET /invoices/:id` carries the full receipt payload; PDF lives on the public share route `GET /public/receipts/:token/pdf` (design 0009 Gate 2) |
 | `POST /simulators/*`, `/advisor/recommendations` | As designed |
 
