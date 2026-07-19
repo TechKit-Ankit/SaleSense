@@ -44,11 +44,11 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => (window.location.href = "/catalog/products")}>
             <Package className="h-4 w-4" />
             Add Product
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => (window.location.href = "/pos")}>
             <Plus className="h-4 w-4" />
             New Sale
           </Button>

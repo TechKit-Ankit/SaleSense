@@ -2,7 +2,21 @@
 
 ## Status
 
-Proposed
+Accepted, with a recorded implementation divergence (see below).
+
+## Implementation note (2026-07-14)
+
+The dashboard CRUD screens (customers, products, and future add/edit forms) use
+**lightweight inline card forms with plain inputs + native `<select>`**, not the
+React Hook Form + Zod + shadcn-dialog pattern this ADR prescribes. Reasons: only
+`button/card/input/label/badge/avatar/separator` shadcn components were ever installed
+(no `dialog`/`select`/`form`), and RHF is used only on the auth pages. The inline-card
+pattern (first shipped on the Customers page) is now the de-facto convention for
+dashboard CRUD — chosen for consistency (AGENTS.md: "code that reads like its
+surroundings") over introducing a heavier, one-off pattern.
+
+RHF+Zod+shadcn-dialog remains the target for a future uniform forms pass; until then,
+**match the inline-card pattern** for new dashboard forms. The auth pages keep RHF.
 
 ## Date
 
