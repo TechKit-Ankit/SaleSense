@@ -17,8 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    // suppressHydrationWarning: browser extensions (Dark Reader, Grammarly,
+    // theme managers) inject attributes onto <html>/<body> before React
+    // hydrates. This suppresses only that top-level attribute mismatch — deep
+    // content mismatches still warn. Standard Next.js pattern.
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
           {children}
           <Toaster position="top-center" richColors />
